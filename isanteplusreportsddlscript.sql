@@ -1,0 +1,209 @@
+DROP DATABASE if exists isanteplus; 
+create database if not exists isanteplus;
+SET GLOBAL event_scheduler = 1 ;
+use isanteplus;
+DROP TABLE if exists `patient_imagerie`;
+DROP TABLE if exists patient_dispensing;
+DROP TABLE if exists `patient_tb_diagnosis`;
+DROP TABLE if exists `patient_visit`;
+DROP TABLE if exists `patient`;
+CREATE TABLE if not exists `patient` (
+  `location_id` int(11) DEFAULT NULL,
+  `st_id` varchar(20) DEFAULT NULL,
+  `national_id` varchar(20) DEFAULT NULL,
+  `patient_id` int(11) NOT NULL,
+  `given_name` longtext,
+  `family_name` longtext,
+  `gender` varchar(10) DEFAULT NULL,
+  `birthdate` date DEFAULT NULL,
+  `telephone` varchar(15) DEFAULT NULL,
+  `last_address` longtext,
+  `degree` longtext,
+  `vih_status` int(11) DEFAULT 0,
+  `mother_name` longtext,
+  `occupation` longtext,
+  `maritalStatus` varchar(20) DEFAULT NULL,
+  `place_of_birth` longtext,
+  `creator` varchar(20) DEFAULT NULL,
+  `date_created` date DEFAULT NULL,
+  `death_date` date DEFAULT NULL,
+  `cause_of_death` longtext,
+  `last_inserted_date` datetime DEFAULT NULL,
+  `last_updated_date` datetime DEFAULT NULL,
+  PRIMARY KEY (`patient_id`),
+  KEY `location_id` (`location_id`),
+  CONSTRAINT `patient_ibfk_1` FOREIGN KEY (`location_id`) REFERENCES openmrs.`location`(`location_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+CREATE TABLE  if not exists `patient_visit` (
+  `visit_date` date DEFAULT NULL,
+  `visit_id` int(11),
+  `encounter_id` int(11) DEFAULT NULL,
+  `location_id` int(11) DEFAULT NULL,
+  `patient_id` int(11),
+  `start_date` date DEFAULT NULL,
+  `stop_date` date DEFAULT NULL,
+  `creator` varchar(20) DEFAULT NULL,
+  `encounter_type` int(11) DEFAULT NULL,
+  `form_id` int(11) DEFAULT NULL,
+  `next_visit_date` date DEFAULT NULL,
+  `last_insert_date` date DEFAULT NULL,
+  KEY `location_id` (`location_id`),
+  KEY `form_id` (`form_id`),
+  KEY `patient_id` (`patient_id`),
+  KEY `visit_id` (`visit_id`),
+  KEY `patient_visit_ibfk_3_idx` (`patient_id`),
+  CONSTRAINT `pk_visit` PRIMARY KEY(patient_id,visit_id),
+  CONSTRAINT `patient_visit_ibfk_3` FOREIGN KEY (`patient_id`) REFERENCES openmrs.`patient`(`patient_id`) ON DELETE NO ACTION ON UPDATE NO ACTION,
+  CONSTRAINT `patient_visit_ibfk_2` FOREIGN KEY (`form_id`) REFERENCES openmrs.`form`(`form_id`),
+  CONSTRAINT `patient_visit_ibfk_4` FOREIGN KEY (`location_id`) REFERENCES openmrs.`location`(`location_id`) ON DELETE NO ACTION ON UPDATE NO ACTION
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+/*Debut etl for tb reports*/
+
+CREATE TABLE IF NOT EXISTS patient_tb_diagnosis (
+	patient_id int(11) not null,
+	provider_id int(11),
+	location_id int(11),
+	visit_id int(11),
+	visit_date Datetime,
+	encounter_id INT(11) not null,
+	tb_diag int(11),
+	mdr_tb_diag int(11),
+	tb_new_diag int(11),
+	tb_follow_up_diag int(11),
+	cough_for_2wks_or_more INT(11),
+	tb_treatment_start_date DATE,
+	status_tb_treatment INT(11) default 0,
+	/*statuts_tb_treatment = Gueri(1),traitement_termine(2),
+		Abandon(3),tranfere(4),decede(5)
+	*/
+	tb_treatment_stop_date DATE,
+	PRIMARY KEY (`encounter_id`,location_id),
+	CONSTRAINT FOREIGN KEY (patient_id) REFERENCES isanteplus.patient(patient_id),
+	INDEX(visit_date),
+	INDEX(encounter_id),
+	INDEX(patient_id)
+);
+/*Table patient_dispensing for all drugs from the form ordonance medical*/
+
+CREATE TABLE IF NOT EXISTS patient_dispensing (
+	patient_id int(11) not null,
+	visit_id int(11),
+	location_id int(11),
+	visit_date Datetime,
+	encounter_id int(11) not null,
+	provider_id int(11),
+	drug_id int(11) not null,
+	dose_day int(11),
+	pills_amount int(11),
+	dispensation_date date,
+	next_dispensation_date Date,
+	/*CONSTRAINT pk_patient_dispensing PRIMARY KEY(encounter_id,location_id,drug_id),
+    CONSTRAINT FOREIGN KEY (patient_id) REFERENCES isanteplus.patient(patient_id),*/
+	INDEX(visit_date),
+	INDEX(encounter_id),
+	INDEX(patient_id)	
+);
+/*Table patient_imagerie*/
+
+CREATE TABLE IF NOT EXISTS patient_imagerie (
+	patient_id int(11) not null,
+	location_id int(11),
+	visit_id int(11) not null,
+	encounter_id int(11) not null,
+	visit_date Datetime,
+	radiographie_pul int(11) default 0,
+	radiographie_autre int(11),
+	crachat_barr int(11),
+	PRIMARY KEY (`location_id`,`encounter_id`),
+	CONSTRAINT FOREIGN KEY (patient_id) REFERENCES isanteplus.patient(patient_id),
+	INDEX(visit_date),
+	INDEX(encounter_id),
+	INDEX(patient_id)
+);
+/*Table that contains all the arv drugs*/
+DROP TABLE if exists `arv_drugs`;
+CREATE TABLE IF NOT EXISTS arv_drugs(
+	id INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+	drug_id INT(11) NOT NULL UNIQUE,
+	drug_name longtext NOT NULL,
+	date_inserted DATE NOT NULL
+);
+TRUNCATE TABLE arv_drugs;
+INSERT INTO arv_drugs(drug_id,drug_name,date_inserted)
+VALUES(70056,'Abacavir(ABC)', DATE(now())),
+	  (630,'Combivir(AZT+3TC)', DATE(now())),
+	  (74807,'Didanosine(ddI)', DATE(now())),
+	  (75628,'Emtricitabine(FTC)', DATE(now())),
+	  (78643,'Lamivudine(3TC)', DATE(now())),
+	  (84309,'Stavudine(d4T)', DATE(now())),
+	  (84795,'Tenofovir(TDF)', DATE(now())),
+	  (817,'Trizivir(ABC+AZT+3TC)', DATE(now())),
+	  (86663,'Zidovudine(AZT)', DATE(now())),
+	  (75523,'Efavirenz(EFV)', DATE(now())),
+	  (80586,'Nevirapine(NVP)', DATE(now())),
+	  (71647,'Atazanavir(ATV)', DATE(now())),
+	  (159809,'Atazanavir+BostRTV', DATE(now())),
+	  (77995,'Indinavir(IDV)', DATE(now())),
+	  (794,'Lopinavir + BostRTV(Kaletra)', DATE(now())),
+	  (74258,'Darunavir', DATE(now())),
+	  (154378,'Raltegravir', DATE(now()));
+
+/*Table that contains the labels of ARV status*/
+DROP TABLE IF EXISTS ARV_status_loockup;
+	CREATE TABLE IF NOT EXISTS ARV_status_loockup(
+	id int primary key auto_increment,
+	name_en varchar(50),
+	name_fr varchar(50),
+	definition longtext,
+	insertDate date);
+
+	insert into ARV_status_loockup values 
+	(1,'Death on ART','Décédés','Tout patient mis sous ARV et ayant un rapport d’arrêt rempli pour motif de décès',date(now())),
+	(2,'Stopped','Arrêtés','Tout patient mis sous ARV et ayant un rapport d’arrêt rempli pour motif d’arrêt de traitement',date(now())),
+	(3,'Transfert','Transférés','Tout patient mis sous ARV et ayant un rapport d’arrêt rempli pour motif de transfert',date(now())),
+	(4,'Death on PRE-ART','Décédés en Pré-ARV',' Tout patient VIH+ non encore mis sous ARV ayant un rapport d’arrêt rempli pour cause de décès',date(now())),
+	(5,'Transferred on PRE-ART','Transférés en Pré-ARV','Tout patient VIH+ non encore mis sous ARV ayant un rapport d’arrêt rempli pour cause de transfert',date(now())),
+	(6,'Regular','Réguliers (actifs sous ARV)','Tout patient mis sous ARV et n’ayant aucun rapport d’arrêt rempli pour motifs de décès, de transfert, ni d’arrêt de traitement. La date de prochain rendez-vous clinique ou de prochaine collecte de médicaments est située dans le futur de la période d’analyse. (Fiches à ne pas considérer, labo et counseling)',date(now())),
+	(7,'Recent on PRE-ART','Récents Pré-ARV','Tout patient VIH+ non encore mis sous ARV ayant eu sa première visite (clinique « 1re visite VIH» ) au cours des 12 derniers mois tout en excluant tout patient ayant un rapport d’arrêt avec motifs décédé ou transféré',date(now())),
+	(8,'Missing appointment','Rendez-vous ratés','Tout patient mis sous ARV et n’ayant aucun rapport d’arrêt rempli pour motifs de décès, de transfert, ni d’arrêt de traitement. La date de la période d’analyse est supérieure à la date de rendez-vous clinique ou de collecte de médicaments la plus récente sans excéder 90 jours',date(now())),
+	(9,'Lost to follow-up','Perdus de vue','Tout patient mis sous ARV et n’ayant aucun rapport d’arrêt rempli pour motifs de décès, de transfert, ni d’arrêt de traitement. La date de la période d’analyse est supérieure à la date de rendez-vous clinique ou de collecte de médicaments la plus récente de plus de 90 jours',date(now())),
+	(10,'Lost to follow-up on PRE-ART','Perdus de vue en Pré-ARV','Tout patient VIH+ non encore mis sous ARV n’ayant eu aucune visite (clinique « 1re visite VIH et suivi VIH uniquement », pharmacie, labo) au cours des 12 derniers mois et n’étant ni décédé ni transféré',date(now())),
+	(11,'Actif on Pre-ART','Actifs en Pré-ARV','Tout patient VIH+ non encore mis sous ARV et ayant eu une visite (clinique de suivi VIH uniquement, ou de pharmacie ou de labo) au cours des 12 derniers mois et n’étant ni décédé ni transféré',date(now())),
+	(12,'ongoing','En cours','La somme des patients sous ARV réguliers et ceux ayant raté leurs rendez-vous',date(now()));
+ /*Table that contains all patients on ARV*/
+	DROP TABLE IF EXISTS patient_on_arv;
+	create table if not exists patient_on_arv(
+	id int primary key auto_increment,
+	patient_id int(11),
+	visit_id int(11),
+	visit_date date);
+/*Table for all patients with reason of discontinuation
+Perte de contact avec le patient depuis plus de trois mois = 5240
+Transfert vers un autre établissement=159492
+Décès=159
+Discontinuations=1667
+Raison d'arrêt inconnue=1067
+*/
+ DROP TABLE IF EXISTS discontinuation_reason;
+	create table if not exists discontinuation_reason(
+	patient_id int(11),
+	visit_id int(11),
+	visit_date date,
+	reason int(11),
+	reason_name varchar(50),
+	CONSTRAINT pk_dreason PRIMARY KEY (patient_id,visit_id,reason)
+	);
+/*Table patient_status_ARV contains all patients and their status*/
+	DROP TABLE IF EXISTS patient_status_ARV;
+	create table if not exists patient_status_ARV(
+	patient_id int(11),
+	id_status int,
+	start_date date,
+	end_date date,
+	dis_reason int(11),
+	CONSTRAINT pk_status_arv 
+	PRIMARY KEY (patient_id,id_status,start_date));
+
+GRANT SELECT ON isanteplus.* TO 'openmrs_user'@'localhost';
