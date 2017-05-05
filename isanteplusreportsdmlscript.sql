@@ -446,9 +446,27 @@ REPLACE INTO patient_status_ARV(patient_id,id_status,start_date)
 	                        'a0d57dca-3028-4153-88b7-c67a30fde595',
 							'51df75f7-a3de-4f82-a9df-c0bedaf5a2dd'
 							)
-	AND((DATE(now()) > v.next_visit_date) 
-	AND (DATEDIFF(DATE(now()),v.next_visit_date)<=90))
-	GROUP BY v.patient_id;		
+	AND((DATE(now()) > v.next_visit_date))
+	GROUP BY v.patient_id
+	UNION ALL
+	SELECT DISTINCT pdis.patient_id,8,MAX(DATE(pdis.visit_date))
+	FROM isanteplus.patient ipat,isanteplus.patient_dispensing pdis,
+	openmrs.encounter enc,
+	openmrs.encounter_type entype
+	WHERE ipat.patient_id=pdis.patient_id
+	AND pdis.visit_id=enc.visit_id
+	AND enc.encounter_type=entype.encounter_type_id
+	AND enc.patient_id	
+	NOT IN(SELECT dreason.patient_id FROM discontinuation_reason dreason
+	WHERE dreason.reason IN(159,5240,159492))
+	AND enc.patient_id IN (SELECT parv.patient_id 
+	FROM isanteplus.patient_on_arv parv)
+	AND entype.uuid NOT IN ('f037e97b-471e-4898-a07c-b8e169e0ddc4',
+	                        'a0d57dca-3028-4153-88b7-c67a30fde595',
+							'51df75f7-a3de-4f82-a9df-c0bedaf5a2dd'
+							) 
+	AND (DATEDIFF(DATE(now()),pdis.next_dispensation_date)<=90)
+	GROUP BY pdis.patient_id;		
 /*Insertion for patient_status Perdus de vue=9*/
 REPLACE INTO patient_status_ARV(patient_id,id_status,start_date)
 	SELECT DISTINCT v.patient_id,9,MAX(v.start_date)
@@ -456,14 +474,26 @@ REPLACE INTO patient_status_ARV(patient_id,id_status,start_date)
 	openmrs.encounter_type entype
 	WHERE v.visit_id=enc.visit_id
 	AND enc.encounter_type=entype.encounter_type_id
-	AND (DATE(now()) > v.next_visit_date 
-	     OR DATEDIFF(DATE(now()),v.next_visit_date)>90)
+	AND (DATE(now()) > v.next_visit_date)
 	AND enc.patient_id 
 	NOT IN(SELECT dreason.patient_id FROM discontinuation_reason dreason
 	WHERE dreason.reason IN(159,5240,159492))
 	AND enc.patient_id IN (SELECT parv.patient_id 
 	FROM isanteplus.patient_on_arv parv)
-	GROUP BY v.patient_id;
+	GROUP BY v.patient_id
+	UNION ALL
+	SELECT DISTINCT pdis.patient_id,9,MAX(DATE(pdis.visit_date))
+	FROM isanteplus.patient_dispensing pdis,openmrs.encounter enc,
+	openmrs.encounter_type entype
+	WHERE pdis.visit_id=enc.visit_id
+	AND enc.encounter_type=entype.encounter_type_id
+	AND (DATEDIFF(DATE(now()),pdis.next_dispensation_date)>90)
+	AND enc.patient_id 
+	NOT IN(SELECT dreason.patient_id FROM discontinuation_reason dreason
+	WHERE dreason.reason IN(159,5240,159492))
+	AND enc.patient_id IN (SELECT parv.patient_id 
+	FROM isanteplus.patient_on_arv parv)
+	GROUP BY pdis.patient_id;
 	
 /*INSERTION for patient status Recent on PRE-ART=7,
      Perdus de vue en Pré-ARV=10,Actifs en Pré-ARV=11 */
