@@ -540,7 +540,94 @@ REPLACE INTO patient_status_ARV(patient_id,id_status,start_date)
 	       SET psarv.dis_reason=dreason.reason
 		   WHERE psarv.patient_id=dreason.patient_id
 		   AND psarv.start_date=dreason.visit_date;				  
-/*End of patient Status*/				  
+/*End of patient Status*/
+/*Starting patient_prescription*/
+	/*Insert for patient_id,encounter_id, drug_id areas*/
+  REPLACE into patient_prescription
+					(
+					 patient_id,
+					 encounter_id,
+					 location_id,
+					 drug_id
+					)
+					select distinct ob.person_id,
+					ob.encounter_id,ob.location_id,ob.value_coded
+					from openmrs.obs ob, openmrs.obs ob1
+					where ob.person_id=ob1.person_id
+					AND ob.encounter_id=ob1.encounter_id
+					AND ob.obs_group_id=ob1.obs_id
+                    AND ob1.concept_id=1442	
+					AND ob.concept_id=1282;
+	/*update provider for patient_prescription*/
+	update patient_prescription pp, openmrs.encounter_provider enp
+	set pp.provider_id=enp.provider_id
+	WHERE pp.encounter_id=enp.encounter_id;
+	  /*update visit_id, visit_date for table patient_prescription*/
+	update patient_prescription patp, openmrs.visit vi, openmrs.encounter en
+   set patp.visit_id=vi.visit_id, patp.visit_date=vi.date_started
+	where patp.encounter_id=en.encounter_id
+	AND en.visit_id=vi.visit_id;
+	/*update rx_or_prophy for table patient_prescription*/
+	update isanteplus.patient_prescription pp, openmrs.obs ob1, openmrs.obs ob2
+		   set pp.rx_or_prophy=ob2.value_coded
+		   WHERE pp.encounter_id=ob2.encounter_id
+		   AND ob1.obs_id=ob2.obs_group_id
+		   AND ob1.concept_id=1442
+		   AND ob2.concept_id=160742;
+    /*update posology_day for table patient_prescription*/
+	update isanteplus.patient_prescription pp, openmrs.obs ob1, openmrs.obs ob2
+		   set pp.posology=ob2.value_text
+		   WHERE pp.encounter_id=ob2.encounter_id
+		   AND ob1.obs_id=ob2.obs_group_id
+		   AND ob1.concept_id=1442
+		   AND ob2.concept_id=1444;
+	/*update number_day for table patient_prescription*/
+	update isanteplus.patient_prescription pp, openmrs.obs ob1, openmrs.obs ob2
+		   set pp.number_day=ob2.value_numeric
+		   WHERE pp.encounter_id=ob2.encounter_id
+		   AND ob1.obs_id=ob2.obs_group_id
+		   AND ob1.concept_id=1442
+		   AND ob2.concept_id=159368;
+/*End of patient_prescription*/	
+/*Starting patient_laboratory */
+/*Insertion for patient_laboratory*/
+	REPLACE into patient_laboratory
+					(
+					 patient_id,
+					 encounter_id,
+					 location_id,
+					 test_id
+					)
+					select distinct ob.person_id,
+					ob.encounter_id,ob.location_id,ob.value_coded
+					from openmrs.obs ob, openmrs.encounter enc, 
+					openmrs.encounter_type entype
+					where ob.encounter_id=enc.encounter_id
+					AND enc.encounter_type=entype.encounter_type_id
+                    AND ob.concept_id=1271
+					AND entype.uuid='f037e97b-471e-4898-a07c-b8e169e0ddc4';	
+    /*update provider for patient_laboratory*/
+	update patient_laboratory lab, openmrs.encounter_provider enp
+	set lab.provider_id=enp.provider_id
+	WHERE lab.encounter_id=enp.encounter_id;
+	/*update visit_id, visit_date for table patient_laboratory*/
+	update patient_laboratory lab, openmrs.visit vi, openmrs.encounter en
+    set lab.visit_id=vi.visit_id, lab.visit_date=vi.date_started
+	where lab.encounter_id=en.encounter_id
+	AND en.visit_id=vi.visit_id;
+	/*update test_done,date_test_done,comment_test_done for patient_laboratory*/
+	update patient_laboratory plab,openmrs.obs ob
+	SET plab.test_done=1,plab.test_result=CASE WHEN ob.value_coded<>''
+	   THEN ob.value_coded
+	   WHEN ob.value_numeric<>'' THEN ob.value_numeric
+	   WHEN ob.value_text<>'' THEN ob.value_text
+	   END,
+	plab.date_test_done=ob.obs_datetime,
+	plab.comment_test_done=ob.comments
+	WHERE plab.test_id=ob.concept_id
+	AND plab.encounter_id=ob.encounter_id;
+
+/*End of patient_laboratory*/			  
 			SET FOREIGN_KEY_CHECKS=1;	  
 		    SET SQL_SAFE_UPDATES = 1;
 		 /*End of DML queries*/

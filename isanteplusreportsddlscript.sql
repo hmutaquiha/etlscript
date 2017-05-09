@@ -205,5 +205,44 @@ Raison d'arrêt inconnue=1067
 	dis_reason int(11),
 	CONSTRAINT pk_status_arv 
 	PRIMARY KEY (patient_id,id_status,start_date));
+	
+/*Create table for medicaments prescrits*/
+DROP TABLE IF EXISTS patient_prescription;
+CREATE TABLE IF NOT EXISTS patient_prescription (
+	patient_id int(11) not null,
+	visit_id int(11),
+	location_id int(11),
+	visit_date Datetime,
+	encounter_id int(11) not null,
+	provider_id int(11),
+	drug_id int(11) not null,
+	rx_or_prophy int(11),
+    posology text,
+    number_day int(11),	
+	/*CONSTRAINT pk_patient_dispensing PRIMARY KEY(encounter_id,location_id,drug_id),
+    CONSTRAINT FOREIGN KEY (patient_id) REFERENCES isanteplus.patient(patient_id),*/
+	INDEX(visit_date),
+	INDEX(encounter_id),
+	INDEX(patient_id)	
+);
+
+ /*Create table for lab*/
+	DROP TABLE IF EXISTS patient_laboratory;
+	CREATE TABLE IF NOT EXISTS patient_laboratory(
+		patient_id int(11) not null,
+		visit_id int(11),
+		location_id int(11),
+		visit_date Datetime,
+		encounter_id int(11) not null,
+		provider_id int(11),
+		test_id int(11) not null,
+		test_done int(11) default 0,
+		test_result text,
+		date_test_done DATE,
+		comment_test_done text,
+		INDEX(visit_date),
+		INDEX(encounter_id),
+		INDEX(patient_id)	
+	);
 
 GRANT SELECT ON isanteplus.* TO 'openmrs_user'@'localhost';
