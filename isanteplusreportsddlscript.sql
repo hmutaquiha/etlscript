@@ -8,15 +8,16 @@ DROP TABLE if exists `patient_tb_diagnosis`;
 DROP TABLE if exists `patient_visit`;
 DROP TABLE if exists `patient`;
 CREATE TABLE if not exists `patient` (
-  `location_id` int(11) DEFAULT NULL,
+  `identifier` varchar(50) DEFAULT NULL,
   `st_id` varchar(20) DEFAULT NULL,
   `national_id` varchar(20) DEFAULT NULL,
   `patient_id` int(11) NOT NULL,
+  `location_id` int(11) DEFAULT NULL,
   `given_name` longtext,
   `family_name` longtext,
   `gender` varchar(10) DEFAULT NULL,
   `birthdate` date DEFAULT NULL,
-  `telephone` varchar(15) DEFAULT NULL,
+  `telephone` varchar(50) DEFAULT NULL,
   `last_address` longtext,
   `degree` longtext,
   `vih_status` int(11) DEFAULT 0,
@@ -99,8 +100,8 @@ CREATE TABLE IF NOT EXISTS patient_dispensing (
 	pills_amount int(11),
 	dispensation_date date,
 	next_dispensation_date Date,
-	/*CONSTRAINT pk_patient_dispensing PRIMARY KEY(encounter_id,location_id,drug_id),
-    CONSTRAINT FOREIGN KEY (patient_id) REFERENCES isanteplus.patient(patient_id),*/
+	CONSTRAINT pk_patient_dispensing PRIMARY KEY(encounter_id,location_id,drug_id),
+    /*CONSTRAINT FOREIGN KEY (patient_id) REFERENCES isanteplus.patient(patient_id),*/
 	INDEX(visit_date),
 	INDEX(encounter_id),
 	INDEX(patient_id)	
@@ -219,8 +220,8 @@ CREATE TABLE IF NOT EXISTS patient_prescription (
 	rx_or_prophy int(11),
     posology text,
     number_day int(11),	
-	/*CONSTRAINT pk_patient_dispensing PRIMARY KEY(encounter_id,location_id,drug_id),
-    CONSTRAINT FOREIGN KEY (patient_id) REFERENCES isanteplus.patient(patient_id),*/
+	CONSTRAINT pk_patient_dispensing PRIMARY KEY(encounter_id,location_id,drug_id),
+    /*CONSTRAINT FOREIGN KEY (patient_id) REFERENCES isanteplus.patient(patient_id),*/
 	INDEX(visit_date),
 	INDEX(encounter_id),
 	INDEX(patient_id)	
@@ -240,9 +241,40 @@ CREATE TABLE IF NOT EXISTS patient_prescription (
 		test_result text,
 		date_test_done DATE,
 		comment_test_done text,
+		CONSTRAINT pk_patient_laboratory PRIMARY KEY (patient_id,encounter_id,test_id),
 		INDEX(visit_date),
 		INDEX(encounter_id),
 		INDEX(patient_id)	
 	);
+	
+	DROP TABLE IF EXISTS patient_pregnancy;
+	CREATE TABLE IF NOT EXISTS patient_pregnancy(
+	patient_id int(11),
+	encounter_id int(11),
+	start_date date,
+	end_date date,
+	CONSTRAINT pk_patient_preg PRIMARY KEY (patient_id,encounter_id));
+	
+	/*Create table alert_lookup*/
+	DROP TABLE IF EXISTS alert_lookup;
+	CREATE TABLE IF NOT EXISTS alert_lookup(
+		id int primary key auto_increment,
+		libelle text,
+		insert_date date
+	);
+	/*table alert_lookup insertion*/
+	INSERT INTO alert_lookup(id,libelle,insert_date) VALUES 
+	(1,'Nombre de patient sous ARV depuis 6 mois sans un résultat de charge virale',DATE(now())),
+	(2,'Nombre de femmes enceintes, sous ARV depuis 4 mois sans un résultat de charge virale',DATE(now())),
+	(3,'Nombre de patients ayant leur dernière charge virale remontant à au moins 12 mois',DATE(now())),
+	(4,'Nombre de patients ayant leur dernière charge virale remontant à au moins 3 mois et dont le résultat était > 1000 copies/ml',DATE(now()));
+	/*Create table alert*/
+	DROP TABLE IF EXISTS alert;
+	CREATE TABLE IF NOT EXISTS alert(
+	id int primary key auto_increment,
+	patient_id int(11),
+	id_alert int(11),
+	encounter_id int(11),
+	date_alert date);
 
 GRANT SELECT ON isanteplus.* TO 'openmrs_user'@'localhost';

@@ -495,23 +495,41 @@ REPLACE INTO patient_status_ARV(patient_id,id_status,start_date)
 	FROM isanteplus.patient_on_arv parv)
 	GROUP BY pdis.patient_id;
 	
-/*INSERTION for patient status Recent on PRE-ART=7,
-     Perdus de vue en Pré-ARV=10,Actifs en Pré-ARV=11 */
+/*INSERTION for patient status,
+     Perdus de vue en Pré-ARV=10 */
+REPLACE INTO patient_status_ARV(patient_id,id_status,start_date)
+	SELECT DISTINCT v.patient_id,10,
+	MAX(v.date_started)
+	FROM isanteplus.patient ispat,
+	openmrs.visit v,openmrs.encounter enc,
+	openmrs.encounter_type entype,openmrs.obs ob
+	WHERE ispat.patient_id=v.patient_id
+	AND v.visit_id=enc.visit_id 
+	AND enc.encounter_type=entype.encounter_type_id
+	AND enc.patient_id NOT IN 
+	(SELECT dreason.patient_id FROM discontinuation_reason dreason
+	WHERE dreason.reason IN(159,159492))
+	AND ispat.vih_status=1
+	AND ispat.patient_id NOT IN (SELECT parv.patient_id
+	FROM isanteplus.patient_on_arv parv)
+	AND entype.uuid IN('17536ba6-dd7c-4f58-8014-08c7cb798ac7',
+		'349ae0b4-65c1-4122-aa06-480f186c8350',
+		'204ad066-c5c2-4229-9a62-644bc5617ca2',
+		'33491314-c352-42d0-bd5d-a9d0bffc9bf1',
+		'10d73929-54b6-4d18-a647-8b7316bc1ae3',
+		'a9392241-109f-4d67-885b-57cc4b8c638f',
+		'f037e97b-471e-4898-a07c-b8e169e0ddc4'
+		)
+	AND (TIMESTAMPDIFF(MONTH, v.date_started,DATE(now()))>=12)
+	GROUP BY ispat.patient_id;
+	/*=========================================================*/
+	/*INSERTION for patient status Recent on PRE-ART=7,Actifs en Pré-ARV=11 */
 REPLACE INTO patient_status_ARV(patient_id,id_status,start_date)
 	SELECT DISTINCT v.patient_id,
 	CASE WHEN 
 		(TIMESTAMPDIFF(MONTH,v.date_started,DATE(now()))<=12)
 		AND (entype.uuid IN('17536ba6-dd7c-4f58-8014-08c7cb798ac7',
 		'349ae0b4-65c1-4122-aa06-480f186c8350')) THEN 7
-		WHEN
-		(TIMESTAMPDIFF(MONTH, v.date_started,DATE(now()))>12)
-		AND (entype.uuid NOT IN('17536ba6-dd7c-4f58-8014-08c7cb798ac7',
-		'349ae0b4-65c1-4122-aa06-480f186c8350',
-		'204ad066-c5c2-4229-9a62-644bc5617ca2',
-		'33491314-c352-42d0-bd5d-a9d0bffc9bf1',
-		'10d73929-54b6-4d18-a647-8b7316bc1ae3',
-		'a9392241-109f-4d67-885b-57cc4b8c638f',
-		'f037e97b-471e-4898-a07c-b8e169e0ddc4')) THEN 10
 	   WHEN 
 	   (TIMESTAMPDIFF(MONTH, v.date_started,DATE(now()))<=12) 
 		AND (entype.uuid NOT IN('204ad066-c5c2-4229-9a62-644bc5617ca2',
@@ -531,10 +549,20 @@ REPLACE INTO patient_status_ARV(patient_id,id_status,start_date)
 	(SELECT dreason.patient_id FROM discontinuation_reason dreason
 	WHERE dreason.reason IN(159,159492))
 	AND ispat.vih_status=1
-	AND ispat.patient_id NOT IN (SELECT parv.patient_id 
+	AND ispat.patient_id NOT IN (SELECT parv.patient_id
 	FROM isanteplus.patient_on_arv parv)
+	AND entype.uuid IN('17536ba6-dd7c-4f58-8014-08c7cb798ac7',
+		'349ae0b4-65c1-4122-aa06-480f186c8350',
+		'204ad066-c5c2-4229-9a62-644bc5617ca2',
+		'33491314-c352-42d0-bd5d-a9d0bffc9bf1',
+		'10d73929-54b6-4d18-a647-8b7316bc1ae3',
+		'a9392241-109f-4d67-885b-57cc4b8c638f',
+		'f037e97b-471e-4898-a07c-b8e169e0ddc4'
+		)
+	AND (TIMESTAMPDIFF(MONTH,v.date_started,DATE(now()))<=12)
 	GROUP BY ispat.patient_id;
 	
+	/*===========================================================*/
 	/*UPDATE Discontinuations reason in table patient_status_ARV*/
 	UPDATE patient_status_ARV psarv,discontinuation_reason dreason
 	       SET psarv.dis_reason=dreason.reason
@@ -627,7 +655,101 @@ REPLACE INTO patient_status_ARV(patient_id,id_status,start_date)
 	WHERE plab.test_id=ob.concept_id
 	AND plab.encounter_id=ob.encounter_id;
 
-/*End of patient_laboratory*/			  
+/*End of patient_laboratory*/
+/*Starting insertion for patient_prenancy table*/
+/*Patient_pregnancy insertion*/
+	REPLACE INTO patient_pregnancy (patient_id,encounter_id,start_date)
+	SELECT DISTINCT ob.person_id,ob.encounter_id,DATE(ob.obs_datetime)
+	FROM openmrs.obs ob, openmrs.obs ob1
+	WHERE ob.obs_group_id=ob1.obs_id
+	AND ob.concept_id=1284
+	AND ob.value_coded IN (46,129251,132678,47,163751,1449,118245,129211,141631)
+	AND ob1.concept_id=159947
+	/*AND ob.person_id NOT IN
+	(SELECT ppr.patient_id FROM isanteplus.patient_pregnancy ppr
+	WHERE ppr.end_date is null 
+	AND ppr.end_date < DATE(ob.obs_datetime))*/;
+	/*Patient_pregnancy insertion for area Femme enceinte (Grossesse)*/
+	REPLACE INTO patient_pregnancy (patient_id,encounter_id,start_date)
+	SELECT ob.person_id,ob.encounter_id,DATE(ob.obs_datetime)
+	FROM openmrs.obs ob
+	WHERE ob.concept_id=162225
+	AND ob.value_coded=1434;
+	/*Patient_pregnancy insertion for areas B-HCG(positif),Test de Grossesse(positif) */
+	REPLACE INTO patient_pregnancy(patient_id,encounter_id,start_date)
+	SELECT ob.person_id,ob.encounter_id,DATE(ob.obs_datetime)
+	FROM openmrs.obs ob
+	WHERE (ob.concept_id=1945 OR ob.concept_id=45)
+	AND ob.value_coded=703;
+	/* Patient_pregnancy updated date_stop for area DPA: <obs conceptId="CIEL:5596"/>*/
+	UPDATE patient_pregnancy ppr,openmrs.obs ob
+	SET end_date=DATE(ob.value_datetime)
+	WHERE ppr.patient_id=ob.person_id
+	AND ob.concept_id=5596
+	AND ppr.start_date < DATE(ob.value_datetime)
+	AND ppr.end_date is null;
+	/*Patient_pregnancy updated end_date for La date d’une fiche de travail et d’accouchement > a la date de début*/
+	UPDATE patient_pregnancy ppr,openmrs.encounter enc, 
+	openmrs.encounter_type etype
+	SET end_date=DATE(enc.encounter_datetime)
+	WHERE ppr.patient_id=enc.patient_id
+	AND ppr.start_date < DATE(enc.encounter_datetime)
+	AND ppr.end_date is null
+	AND enc.encounter_type=etype.encounter_type_id
+	AND etype.uuid='d95b3540-a39f-4d1e-a301-8ee0e03d5eab';
+	/*Patient_pregnancy updated for DDR – 3 mois + 7 jours=1427 */
+	UPDATE patient_pregnancy ppr,openmrs.obs ob, openmrs.encounter enc
+	SET end_date=DATE(ob.value_datetime) - INTERVAL 3 MONTH + INTERVAL 7 DAY + INTERVAL 1 YEAR
+	WHERE ppr.patient_id=ob.person_id
+	AND ob.person_id=enc.patient_id
+	AND ob.concept_id=1427
+	AND ppr.start_date <= DATE(enc.encounter_datetime) 
+	AND ppr.end_date is null;
+	/*update patient_pregnancy (Add 9 Months on the start_date 
+	    for finding the end_date) */
+    UPDATE patient_pregnancy ppr 
+	SET ppr.end_date=ppr.start_date + INTERVAL 9 MONTH
+	WHERE (TIMESTAMPDIFF(MONTH,ppr.start_date,DATE(now()))>=9)
+	AND ppr.end_date is null;
+/*Ending insertion for patient_prenancy table*/
+/*Starting insertion for alert*/
+/*Insertion for Nombre de patient sous ARV depuis 6 mois sans un résultat de charge virale*/
+	TRUNCATE TABLE alert;
+	INSERT INTO alert(patient_id,id_alert,encounter_id,date_alert)
+	SELECT pdis.patient_id,1,pdis.encounter_id,MAX(pdis.dispensation_date)
+	FROM patient_dispensing pdis
+	WHERE pdis.drug_id IN (SELECT arv.drug_id FROM arv_drugs arv)
+	AND(TIMESTAMPDIFF(MONTH,pdis.dispensation_date,DATE(now()))>=6)
+	AND pdis.patient_id NOT IN (SELECT pl.patient_id FROM patient_laboratory pl
+			WHERE pl.test_id=856 AND pl.test_done=1 AND pl.test_result <> "")
+            GROUP BY pdis.patient_id;
+	/*Insertion for Nombre de femmes enceintes, sous ARV depuis 4 mois sans un résultat de charge virale*/
+	INSERT INTO alert(patient_id,id_alert,encounter_id,date_alert)
+	SELECT pdis.patient_id,2,pdis.encounter_id,MAX(pdis.dispensation_date)
+	FROM patient_dispensing pdis, patient_pregnancy pp
+	WHERE pdis.patient_id=pp.patient_id
+	AND pdis.drug_id IN (SELECT arv.drug_id FROM arv_drugs arv)
+	AND(TIMESTAMPDIFF(MONTH,pdis.dispensation_date,DATE(now()))>=4)
+	AND pdis.patient_id NOT IN (SELECT pl.patient_id FROM patient_laboratory pl
+			WHERE pl.test_id=856 AND pl.test_done=1 AND pl.test_result <> "")
+            GROUP BY pdis.patient_id;
+	/*Insertion for Nombre de patients ayant leur dernière charge virale remontant à au moins 12 mois*/
+	INSERT INTO alert(patient_id,id_alert,encounter_id,date_alert)
+            SELECT pl.patient_id,3,pl.encounter_id,MAX(pl.visit_date)
+			FROM patient_laboratory pl
+			WHERE pl.test_id=856 AND pl.test_done=1 AND pl.test_result <> ""
+			AND(TIMESTAMPDIFF(MONTH,DATE(pl.visit_date),DATE(now()))>=12)
+			GROUP BY pl.patient_id;
+	/*Insertion for Nombre de patients ayant leur dernière charge virale remontant à au moins 3 mois et dont le résultat était > 1000 copies/ml*/
+	INSERT INTO alert(patient_id,id_alert,encounter_id,date_alert)
+            SELECT pl.patient_id,4,pl.encounter_id,MAX(pl.visit_date)
+			FROM patient_laboratory pl
+			WHERE pl.test_id=856 AND pl.test_done=1
+			AND(TIMESTAMPDIFF(MONTH,DATE(pl.visit_date),DATE(now()))>=3)
+			AND pl.test_result > 1000
+			GROUP BY pl.patient_id;
+/*Ending insertion for alert*/
+	  
 			SET FOREIGN_KEY_CHECKS=1;	  
 		    SET SQL_SAFE_UPDATES = 1;
 		 /*End of DML queries*/
