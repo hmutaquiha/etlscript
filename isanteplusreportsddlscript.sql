@@ -21,6 +21,7 @@ CREATE TABLE if not exists `patient` (
   `last_address` longtext,
   `degree` longtext,
   `vih_status` int(11) DEFAULT 0,
+  `arv_status` int(11),
   `mother_name` longtext,
   `occupation` longtext,
   `maritalStatus` varchar(20) DEFAULT NULL,
@@ -29,6 +30,7 @@ CREATE TABLE if not exists `patient` (
   `date_created` date DEFAULT NULL,
   `death_date` date DEFAULT NULL,
   `cause_of_death` longtext,
+  `last_visit_date` DATETIME,
   `last_inserted_date` datetime DEFAULT NULL,
   `last_updated_date` datetime DEFAULT NULL,
   PRIMARY KEY (`patient_id`),
@@ -100,6 +102,7 @@ CREATE TABLE IF NOT EXISTS patient_dispensing (
 	pills_amount int(11),
 	dispensation_date date,
 	next_dispensation_date Date,
+	dispensation_location int(11) default 0,
 	CONSTRAINT pk_patient_dispensing PRIMARY KEY(encounter_id,location_id,drug_id),
     /*CONSTRAINT FOREIGN KEY (patient_id) REFERENCES isanteplus.patient(patient_id),*/
 	INDEX(visit_date),
@@ -193,7 +196,7 @@ Raison d'arrêt inconnue=1067
 	visit_id int(11),
 	visit_date date,
 	reason int(11),
-	reason_name varchar(50),
+	reason_name longtext,
 	CONSTRAINT pk_dreason PRIMARY KEY (patient_id,visit_id,reason)
 	);
 /*Table patient_status_ARV contains all patients and their status*/
@@ -276,5 +279,80 @@ CREATE TABLE IF NOT EXISTS patient_prescription (
 	id_alert int(11),
 	encounter_id int(11),
 	date_alert date);
+	
+	/*TABLE patient_diagnosis, this table contains all patient diagnosis*/	
+DROP TABLE IF EXISTS patient_diagnosis;
+CREATE TABLE IF NOT EXISTS patient_diagnosis(
+	patient_id int(11),
+	encounter_id int(11),
+	location_id int(11),
+	encounter_date date,
+	concept_group int(11),
+	obs_group_id int(11),
+	concept_id int(11),
+	answer_concept_id int(11),
+	suspected_confirmed int(11),
+	primary_secondary int(11),
+	constraint pk_patient_diagnosis 
+	PRIMARY KEY (encounter_id,location_id,concept_group,concept_id,answer_concept_id)
+);
+
+/*Table visit_type for visit_type like : Gynécologique=160456,Prénatale=1622,
+Postnatale=1623,Planification familiale=5483 (ex: OBGYN FORM) */
+DROP TABLE IF EXISTS visit_type;
+	CREATE TABLE IF NOT EXISTS visit_type(
+	patient_id int(11),
+	encounter_id int(11),
+	location_id int(11),
+	visit_id int(11),
+	obs_group int(11),
+	concept_id int(11),
+	v_type int(11),
+	encounter_date date,
+	CONSTRAINT pk_isanteplus_visit_type 
+	PRIMARY KEY (encounter_id,location_id,obs_group,concept_id,v_type));
+
+/*Create table virological_tests */
+DROP TABLE IF EXISTS virological_tests;
+ CREATE TABLE IF NOT EXISTS virological_tests(
+	patient_id int(11),
+	encounter_id int(11),
+	location_id int(11),
+	encounter_date date,
+	concept_group int(11),
+	obs_group_id int(11),
+    test_id int(11),
+	answer_concept_id int(11),
+	test_result int(11),
+	age int(11),
+	age_unit int(11),
+	constraint pk_virological_tests PRIMARY KEY (encounter_id,location_id,obs_group_id,test_id));
+	
+/* Create patient_delivery table */
+DROP TABLE IF EXISTS patient_delivery;
+CREATE TABLE IF NOT EXISTS patient_delivery(
+	patient_id int(11),
+	encounter_id int(11),
+	location_id int(11),
+	delivery_date datetime,
+	delivery_location int(11),
+	vaginal int(11),
+	forceps int(11),
+	vacuum int(11),
+	delivrance int(11),
+	encounter_date date,
+	constraint pk_patient_delivery PRIMARY KEY (encounter_id,location_id));
+/*Create table pediatric_first_visit*/		   
+	DROP TABLE IF EXISTS pediatric_hiv_visit;
+	CREATE TABLE IF NOT EXISTS pediatric_hiv_visit(
+	patient_id int(11),
+	encounter_id int(11),
+	location_id int(11),
+	ptme int(11),
+	prophylaxie72h int(11),
+	actual_vih_status int(11),
+	encounter_date date,
+	constraint pk_pediatric_hiv_visit PRIMARY KEY (patient_id,encounter_id,location_id));
+	
 
 GRANT SELECT ON isanteplus.* TO 'openmrs_user'@'localhost';
