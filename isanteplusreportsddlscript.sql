@@ -9,8 +9,8 @@ DROP TABLE if exists `patient_visit`;
 DROP TABLE if exists `patient`;
 CREATE TABLE if not exists `patient` (
   `identifier` varchar(50) DEFAULT NULL,
-  `st_id` varchar(20) DEFAULT NULL,
-  `national_id` varchar(20) DEFAULT NULL,
+  `st_id` varchar(50) DEFAULT NULL,
+  `national_id` varchar(50) DEFAULT NULL,
   `patient_id` int(11) NOT NULL,
   `location_id` int(11) DEFAULT NULL,
   `given_name` longtext,
@@ -23,8 +23,8 @@ CREATE TABLE if not exists `patient` (
   `vih_status` int(11) DEFAULT 0,
   `arv_status` int(11),
   `mother_name` longtext,
-  `occupation` longtext,
-  `maritalStatus` varchar(20) DEFAULT NULL,
+  `occupation` int(11),
+  `maritalStatus` int(11),
   `place_of_birth` longtext,
   `creator` varchar(20) DEFAULT NULL,
   `date_created` date DEFAULT NULL,
@@ -353,6 +353,28 @@ CREATE TABLE IF NOT EXISTS patient_delivery(
 	actual_vih_status int(11),
 	encounter_date date,
 	constraint pk_pediatric_hiv_visit PRIMARY KEY (patient_id,encounter_id,location_id));
+	
+	/*Create table patient_menstruation*/		   
+	DROP TABLE IF EXISTS patient_menstruation;
+	CREATE TABLE IF NOT EXISTS patient_menstruation(
+	patient_id int(11),
+	encounter_id int(11),
+	location_id int(11),
+	duree_regle int(11),
+	duree_cycle int(11),
+	ddr date,
+	encounter_date date,
+	constraint pk_patient_menstruation PRIMARY KEY (patient_id,encounter_id,location_id));
+	
+	/*Create table for vih_risk_factor*/
+	DROP TABLE IF EXISTS vih_risk_factor;
+	CREATE TABLE IF NOT EXISTS vih_risk_factor(
+	patient_id int(11),
+	encounter_id int(11),
+	location_id int(11),
+	risk_factor int(11),
+	encounter_date date,
+	constraint pk_vih_risk_factor PRIMARY KEY (patient_id,encounter_id,location_id,risk_factor));
 	
 
 GRANT SELECT ON isanteplus.* TO 'openmrs_user'@'localhost';

@@ -87,7 +87,19 @@ DELIMITER $$
 					 pat.place_of_birth=p2.birthPlace,
 					 pat.mother_name=p2.motherName
 					 WHERE pat.patient_id=p2.person_id;
-
+            /*Update for Civil Status  */
+				update patient p,openmrs.obs ob SET maritalStatus=ob.value_coded
+				WHERE p.patient_id=ob.person_id
+				AND ob.concept_id=1054
+				AND ob.obs_datetime=(select MAX(o.obs_datetime) FROM openmrs.obs o 
+				WHERE o.person_id=ob.person_id GROUP BY o.person_id);
+			/*Update for Occupation */
+			update patient p,openmrs.obs ob SET occupation=ob.value_coded
+			WHERE p.patient_id=ob.person_id
+			AND ob.concept_id=1542
+			AND ob.obs_datetime=(select MAX(o.obs_datetime) FROM openmrs.obs o 
+			WHERE o.person_id=ob.person_id GROUP BY o.person_id);
+			
 			/* update patient with vih status */
 			
 			UPDATE patient p, openmrs.encounter en, openmrs.encounter_type ent
@@ -766,17 +778,29 @@ REPLACE INTO patient_status_ARV(patient_id,id_status,start_date)
 	/*Insertion for Nombre de patients ayant leur dernière charge virale remontant à au moins 12 mois*/
 	INSERT INTO alert(patient_id,id_alert,encounter_id,date_alert)
             SELECT pl.patient_id,3,pl.encounter_id,MAX(pl.visit_date)
-			FROM patient_laboratory pl
+			FROM patient_laboratory pl INNER JOIN patient p
+			ON p.patient_id=pl.patient_id
 			WHERE pl.test_id=856 AND pl.test_done=1 AND pl.test_result <> ""
 			AND(TIMESTAMPDIFF(MONTH,DATE(pl.visit_date),DATE(now()))>=12)
+			AND p.vih_status=1
+			AND p.patient_id NOT IN (SELECT plab.patient_id FROM patient_laboratory plab,
+			             patient pa WHERE plab.patient_id=pa.patient_id
+						 AND plab.test_id=844 AND plab.test_result=1302
+						 AND (TIMESTAMPDIFF(YEAR,DATE(p.birthdate),DATE(now()))<=14))
 			GROUP BY pl.patient_id;
 	/*Insertion for Nombre de patients ayant leur dernière charge virale remontant à au moins 3 mois et dont le résultat était > 1000 copies/ml*/
 	INSERT INTO alert(patient_id,id_alert,encounter_id,date_alert)
             SELECT pl.patient_id,4,pl.encounter_id,MAX(pl.visit_date)
-			FROM patient_laboratory pl
+			FROM patient_laboratory pl INNER JOIN patient p
+			ON p.patient_id=pl.patient_id
 			WHERE pl.test_id=856 AND pl.test_done=1
 			AND(TIMESTAMPDIFF(MONTH,DATE(pl.visit_date),DATE(now()))>=3)
 			AND pl.test_result > 1000
+			AND p.vih_status=1
+			AND p.patient_id NOT IN (SELECT plab.patient_id FROM patient_laboratory plab,
+			             patient pa WHERE plab.patient_id=pa.patient_id
+						 AND plab.test_id=844 AND plab.test_result=1302
+						 AND (TIMESTAMPDIFF(YEAR,DATE(p.birthdate),DATE(now()))<=14))
 			GROUP BY pl.patient_id;
 /*Ending insertion for alert*/
 /*Part of patient_diagnosis*/
@@ -951,8 +975,79 @@ replace into virological_tests
 		   AND pv.location_id=ob.location_id;
 		   
 /*End of pediatric_hiv_visit table*/
+/*Starting Insertion for table patient_menstruation*/
+	/*Insertion for patient_menstruation*/
+	replace into patient_menstruation
+					(
+					 patient_id,
+					 encounter_id,
+					 location_id,
+					 encounter_date
+					)
+					select distinct ob.person_id,ob.encounter_id,
+					ob.location_id,DATE(enc.encounter_datetime)
+					from openmrs.obs ob, openmrs.encounter enc, 
+					openmrs.encounter_type ent
+					WHERE ob.encounter_id=enc.encounter_id
+					AND enc.encounter_type=ent.encounter_type_id
+                    AND ob.concept_id IN(163732,160597,1427)
+					AND (ent.uuid="5c312603-25c1-4dbe-be18-1a167eb85f97"
+						OR ent.uuid="49592bec-dd22-4b6c-a97f-4dd2af6f2171");
+	/*Update table patient_menstruation for having the 
+	DDR (DATE de Derniere Regle) value date*/
+	update patient_menstruation pm, openmrs.obs ob
+	 SET pm.ddr=DATE(ob.value_datetime)
+	 WHERE ob.concept_id=1427
+		   and pm.encounter_id=ob.encounter_id
+		   AND pm.location_id=ob.location_id;
+	
+	/*Starting insertion for table vih_risk_factor*/
+	
+	/*Insertion for risks factor*/
+	replace into vih_risk_factor
+					(
+					 patient_id,
+					 encounter_id,
+					 location_id,
+					 risk_factor,
+					 encounter_date
+					)
+					select distinct ob.person_id,ob.encounter_id,
+					ob.location_id,ob.value_coded,
+					DATE(enc.encounter_datetime)
+					from openmrs.obs ob, openmrs.encounter enc, 
+					openmrs.encounter_type ent
+					WHERE ob.encounter_id=enc.encounter_id
+					AND enc.encounter_type=ent.encounter_type_id
+                    AND ob.concept_id IN(1061,160581)
+					AND ob.value_coded IN (163290,163291,105,1063,163273,163274,163289,163275,5567,159218)
+					AND ent.uuid IN('17536ba6-dd7c-4f58-8014-08c7cb798ac7',
+						'349ae0b4-65c1-4122-aa06-480f186c8350');
+	
+	/*Insertion for risks factor for other risks*/
+	replace into vih_risk_factor
+					(
+					 patient_id,
+					 encounter_id,
+					 location_id,
+					 risk_factor,
+					 encounter_date
+					)
+					select distinct ob.person_id,ob.encounter_id,
+					ob.location_id,ob.concept_id,
+					DATE(enc.encounter_datetime)
+					from openmrs.obs ob, openmrs.encounter enc, 
+					openmrs.encounter_type ent
+					WHERE ob.encounter_id=enc.encounter_id
+					AND enc.encounter_type=ent.encounter_type_id
+                    AND ob.concept_id IN(123160,156660,163276,163278,160579,160580)
+					AND ob.value_coded IN (1065)
+					AND ent.uuid IN('17536ba6-dd7c-4f58-8014-08c7cb798ac7',
+						'349ae0b4-65c1-4122-aa06-480f186c8350');
+						
+		/*End of insertion for vih_risk_factor*/
 
-	  
+/*End of Insertion for table patient_menstruation*/	  
 			SET FOREIGN_KEY_CHECKS=1;	  
 		    SET SQL_SAFE_UPDATES = 1;
 		 /*End of DML queries*/
