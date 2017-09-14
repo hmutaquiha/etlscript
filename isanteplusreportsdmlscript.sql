@@ -161,6 +161,20 @@ DELIMITER $$
 					) as bmi
 			SET pv.patient_bmi = bmi.patient_bmi
 			WHERE pv.visit_id = bmi.visit_id;
+
+			/*Update patient_visit table for having family method planning indicator.*/
+			UPDATE isanteplus.patient_visit pv, (
+			  SELECT pv.visit_id, o.value_coded
+				FROM isanteplus.patient_visit pv, openmrs.obs o, openmrs.encounter e 
+				WHERE o.person_id = pv.patient_id 
+				AND pv.visit_id = e.visit_id
+				AND e.encounter_id= o.encounter_id 
+				AND e.encounter_id = pv.encounter_id
+				AND o.concept_id=374) AS family_planning
+			SET pv.family_planning_method_used = true
+			WHERE family_planning.visit_id = pv.visit_id 
+			AND value_coded IS NOT NULL;
+
 		
 		/*---------------------------------------------------*/	
 /*Queries for filling the patient_tb_diagnosis table*/
