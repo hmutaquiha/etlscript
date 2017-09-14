@@ -129,12 +129,38 @@ DELIMITER $$
 			where v.visit_id=e.visit_id and v.patient_id=e.patient_id
 				  and o.person_id=e.patient_id and o.encounter_id=e.encounter_id
 				and o.concept_id='5096';
-		/*Update patient table for having last visit date */
-	   update patient p, openmrs.visit vi
-		SET p.last_visit_date = vi.date_started
-		WHERE p.patient_id=vi.patient_id
-        AND vi.date_started=(select MAX(v.date_started) 
-		FROM openmrs.visit v WHERE v.patient_id=p.patient_id);
+			/*Update patient table for having last visit date */
+		   update patient p, openmrs.visit vi
+			SET p.last_visit_date = vi.date_started
+			WHERE p.patient_id=vi.patient_id
+			AND vi.date_started=(select MAX(v.date_started) 
+			FROM openmrs.visit v WHERE v.patient_id=p.patient_id);
+
+			/*Update patient_visit table for having bmi*/
+			UPDATE isanteplus.patient_visit pv, (
+					SELECT hs.visit_id, ws.weight , hs.height, ( ws.weight / (hs.height*hs.height/10000) ) as 'patient_bmi'
+					FROM (
+						SELECT pv.visit_id, o.value_numeric as 'height' 
+						FROM isanteplus.patient_visit pv, openmrs.obs o, openmrs.encounter e 
+						WHERE o.person_id = pv.patient_id 
+						AND pv.visit_id = e.visit_id
+						AND e.encounter_id= o.encounter_id 
+						AND e.encounter_id = pv.encounter_id
+						AND o.concept_id = 5090
+					) AS hs 
+					JOIN (
+						SELECT pv.visit_id, o.value_numeric as 'weight' 
+						FROM isanteplus.patient_visit pv, openmrs.obs o, openmrs.encounter e 
+						WHERE o.person_id = pv.patient_id 
+						AND pv.visit_id = e.visit_id
+						AND e.encounter_id= o.encounter_id 
+						AND e.encounter_id = pv.encounter_id
+						AND o.concept_id = 5089
+					) AS ws
+					ON hs.visit_id = ws.visit_id
+					) as bmi
+			SET pv.patient_bmi = bmi.patient_bmi
+			WHERE pv.visit_id = bmi.visit_id;
 		
 		/*---------------------------------------------------*/	
 /*Queries for filling the patient_tb_diagnosis table*/

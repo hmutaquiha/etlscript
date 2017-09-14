@@ -49,6 +49,7 @@ CREATE TABLE  if not exists `patient_visit` (
   `creator` varchar(20) DEFAULT NULL,
   `encounter_type` int(11) DEFAULT NULL,
   `form_id` int(11) DEFAULT NULL,
+  `patient_bmi` double DEFAULT NULL,
   `next_visit_date` date DEFAULT NULL,
   `last_insert_date` date DEFAULT NULL,
   KEY `location_id` (`location_id`),
