@@ -50,6 +50,7 @@ CREATE TABLE  if not exists `patient_visit` (
   `encounter_type` int(11) DEFAULT NULL,
   `form_id` int(11) DEFAULT NULL,
   `patient_bmi` double DEFAULT NULL,
+  `adherence_evaluation` int(11) DEFAULT NULL,
   `family_planning_method_used` boolean DEFAULT false,
   `next_visit_date` date DEFAULT NULL,
   `last_insert_date` date DEFAULT NULL,

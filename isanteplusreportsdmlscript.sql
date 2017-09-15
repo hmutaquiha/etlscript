@@ -175,6 +175,18 @@ DELIMITER $$
 			WHERE family_planning.visit_id = pv.visit_id 
 			AND value_coded IS NOT NULL;
 
+			/*Update patient_visit table for adherence evaluation.*/
+			UPDATE isanteplus.patient_visit pv, (
+			  SELECT pv.visit_id, o.value_numeric
+				FROM isanteplus.patient_visit pv, openmrs.obs o, openmrs.encounter e
+				WHERE o.person_id = pv.patient_id
+				AND pv.visit_id = e.visit_id
+				AND e.encounter_id= o.encounter_id
+				AND o.concept_id=163710) AS adherence
+			SET pv.adherence_evaluation = adherence.value_numeric
+			WHERE adherence.visit_id = pv.visit_id
+			AND value_numeric IS NOT NULL;
+
 		
 		/*---------------------------------------------------*/	
 /*Queries for filling the patient_tb_diagnosis table*/
