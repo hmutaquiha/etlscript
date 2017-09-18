@@ -196,12 +196,7 @@ DELIMITER $$
 				AND e.encounter_id= o.encounter_id 
 				AND e.encounter_id = pv.encounter_id
 				AND (
-					o.concept_id=160265 -- BCG
-					OR o.concept_id=1659 -- Tuberculosis disease status
-					OR o.concept_id=1110 -- Prophylaxis
-					OR o.concept_id=163283 -- PPD Negatif
-					OR o.concept_id=162320
-					OR o.concept_id=163284
+					o.concept_id IN (160265, 1659, 1110, 163283, 162320, 163284, 1633, 1389, 163951, 159431, 1113, 159798, 159398)
 				)) AS evaluation_of_tb
 			SET pv.evaluated_of_tb = true
 			WHERE evaluation_of_tb.visit_id = pv.visit_id 
