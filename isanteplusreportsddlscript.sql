@@ -52,6 +52,7 @@ CREATE TABLE  if not exists `patient_visit` (
   `patient_bmi` double DEFAULT NULL,
   `adherence_evaluation` int(11) DEFAULT NULL,
   `family_planning_method_used` boolean DEFAULT false,
+  `evaluated_of_tb` boolean DEFAULT false,
   `next_visit_date` date DEFAULT NULL,
   `last_insert_date` date DEFAULT NULL,
   KEY `location_id` (`location_id`),

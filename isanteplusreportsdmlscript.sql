@@ -187,6 +187,26 @@ DELIMITER $$
 			WHERE adherence.visit_id = pv.visit_id
 			AND value_numeric IS NOT NULL;
 
+			/*Update patient_visit table for evaluation of TB flag.*/
+			UPDATE isanteplus.patient_visit pv, (
+			  SELECT pv.visit_id, o.value_coded
+				FROM isanteplus.patient_visit pv, openmrs.obs o, openmrs.encounter e 
+				WHERE o.person_id = pv.patient_id 
+				AND pv.visit_id = e.visit_id
+				AND e.encounter_id= o.encounter_id 
+				AND e.encounter_id = pv.encounter_id
+				AND (
+					o.concept_id=160265 -- BCG
+					OR o.concept_id=1659 -- Tuberculosis disease status
+					OR o.concept_id=1110 -- Prophylaxis
+					OR o.concept_id=163283 -- PPD Negatif
+					OR o.concept_id=162320
+					OR o.concept_id=163284
+				)) AS evaluation_of_tb
+			SET pv.evaluated_of_tb = true
+			WHERE evaluation_of_tb.visit_id = pv.visit_id 
+			AND value_coded IS NOT NULL;
+
 		
 		/*---------------------------------------------------*/	
 /*Queries for filling the patient_tb_diagnosis table*/
