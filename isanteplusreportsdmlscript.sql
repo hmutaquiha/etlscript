@@ -1057,6 +1057,22 @@ replace into virological_tests
 			OR visits.concept_id = 5314
 			OR visits.concept_id = 1343
 		);
+	/*update for is_active_tb*/
+		UPDATE isanteplus.pediatric_hiv_visit phv, (
+			SELECT pv.encounter_id, o.concept_id, o.value_coded
+			FROM isanteplus.patient_visit pv, openmrs.obs o, openmrs.encounter e 
+			WHERE o.person_id = pv.patient_id 
+				AND pv.visit_id = e.visit_id
+				AND e.encounter_id= o.encounter_id 
+				AND e.encounter_id = pv.encounter_id
+			) AS visits
+		SET phv.is_active_tb = true
+		WHERE 
+			visits.encounter_id = phv.encounter_id
+			AND (
+				(visits.concept_id=160592 AND visits.value_coded=113489)
+				OR (visits.concept_id=160749 AND visits.value_coded=1065)
+			);
 
 		   
 /*End of pediatric_hiv_visit table*/

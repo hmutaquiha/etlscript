@@ -356,6 +356,7 @@ CREATE TABLE IF NOT EXISTS patient_delivery(
 	prophylaxie72h int(11),
 	actual_vih_status int(11),
 	nutritional_assessment_completed boolean DEFAULT false,
+	is_active_tb boolean DEFAULT false,
 	encounter_date date,
 	constraint pk_pediatric_hiv_visit PRIMARY KEY (patient_id,encounter_id,location_id));
 	
