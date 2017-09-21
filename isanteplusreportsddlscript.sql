@@ -380,6 +380,18 @@ CREATE TABLE IF NOT EXISTS patient_delivery(
 	risk_factor int(11),
 	encounter_date date,
 	constraint pk_vih_risk_factor PRIMARY KEY (patient_id,encounter_id,location_id,risk_factor));
+
+	/*Create table for vaccinations*/
+	DROP TABLE IF EXISTS vaccination;
+	CREATE TABLE IF NOT EXISTS vaccination(
+	patient_id int(11),
+	encounter_id int(11),
+	location_id int(11),
+	done_to_45_days boolean DEFAULT false,
+	done_to_75_days boolean DEFAULT false,
+	done_to_105_days boolean DEFAULT false,
+	done_to_270_days boolean DEFAULT false,
+	constraint pk_vaccination PRIMARY KEY (patient_id,encounter_id,location_id));
 	
 
 GRANT SELECT ON isanteplus.* TO 'openmrs_user'@'localhost';

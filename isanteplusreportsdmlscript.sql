@@ -1132,7 +1132,41 @@ replace into virological_tests
 						
 		/*End of insertion for vih_risk_factor*/
 
-/*End of Insertion for table patient_menstruation*/	  
+/*End of Insertion for table patient_menstruation*/
+
+     update vaccination, openmrs.obs ob
+         SET vaccination.done_to_45_days=true
+         WHERE ob.person_id = vaccination.patient_id
+               AND ob.encounter_id = vaccination.encounter_id
+               AND ob.location_id= vaccination.location_id
+               AND ob.concept_id=1418
+               AND ob.value_numeric=1
+               AND (vaccination.patient_id IN (SELECT obs.person_id FROM openmrs.obs obs
+                                                WHERE obs.concept_id=984
+                                                AND obs.value_coded=783)
+               AND vaccination.patient_id IN (SELECT obs.person_id FROM openmrs.obs obs
+                                                WHERE obs.concept_id=984
+                                                AND obs.value_coded=1423)
+               AND vaccination.patient_id IN (SELECT obs.person_id FROM openmrs.obs obs
+                                                WHERE obs.concept_id=984
+                                                AND obs.value_coded=83531))
+               OR (vaccination.patient_id IN (SELECT obs.person_id FROM openmrs.obs obs
+                                                WHERE obs.concept_id=984
+                                                AND obs.value_coded=783)
+               AND vaccination.patient_id IN (SELECT obs.person_id FROM openmrs.obs obs
+                                                WHERE obs.concept_id=984
+                                                AND obs.value_coded=781)
+               AND vaccination.patient_id IN (SELECT obs.person_id FROM openmrs.obs obs
+                                                WHERE obs.concept_id=984
+                                                AND obs.value_coded=83531)
+               AND vaccination.patient_id IN (SELECT obs.person_id FROM openmrs.obs obs
+                                                WHERE obs.concept_id=782
+                                                AND obs.value_coded=83531)
+               AND vaccination.patient_id IN (SELECT obs.person_id FROM openmrs.obs obs
+                                                WHERE obs.concept_id=782
+                                                AND obs.value_coded=5261));
+
+
 			SET FOREIGN_KEY_CHECKS=1;	  
 		    SET SQL_SAFE_UPDATES = 1;
 		 /*End of DML queries*/
