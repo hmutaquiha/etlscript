@@ -387,11 +387,10 @@ CREATE TABLE IF NOT EXISTS patient_delivery(
 	CREATE TABLE IF NOT EXISTS vaccination(
 	patient_id int(11),
 	encounter_id int(11),
+	encounter_date date,
 	location_id int(11),
-	done_to_45_days boolean DEFAULT false,
-	done_to_75_days boolean DEFAULT false,
-	done_to_105_days boolean DEFAULT false,
-	done_to_270_days boolean DEFAULT false,
+	age_range int(11),
+	vaccination_done boolean DEFAULT false,
 	constraint pk_vaccination PRIMARY KEY (patient_id,encounter_id,location_id));
 	
 

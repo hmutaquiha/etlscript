@@ -1147,44 +1147,162 @@ replace into virological_tests
 						'349ae0b4-65c1-4122-aa06-480f186c8350');
 						
 		/*End of insertion for vih_risk_factor*/
+	
+	/*End of Insertion for table patient_menstruation*/
 
-/*End of Insertion for table patient_menstruation*/
+	START TRANSACTION;
+		/*Starting insertion for table vaccination*/
+		replace into vaccination(
+								patient_id, 
+								encounter_id,
+								encounter_date,
+								location_id
+								)	
+								select distinct ob.person_id, ob.encounter_id, enc.encounter_datetime, ob.location_id 
+								from openmrs.obs ob, openmrs.encounter enc, openmrs.encounter_type ent 
+								WHERE ob.encounter_id=enc.encounter_id 
+								AND enc.encounter_type=ent.encounter_type_id  
+								AND ob.concept_id=984;
 
-     update vaccination, openmrs.obs ob
-         SET vaccination.done_to_45_days=true
-         WHERE ob.person_id = vaccination.patient_id
-               AND ob.encounter_id = vaccination.encounter_id
-               AND ob.location_id= vaccination.location_id
-               AND ob.concept_id=1418
-               AND ob.value_numeric=1
-               AND (vaccination.patient_id IN (SELECT obs.person_id FROM openmrs.obs obs
-                                                WHERE obs.concept_id=984
-                                                AND obs.value_coded=783)
-               AND vaccination.patient_id IN (SELECT obs.person_id FROM openmrs.obs obs
-                                                WHERE obs.concept_id=984
-                                                AND obs.value_coded=1423)
-               AND vaccination.patient_id IN (SELECT obs.person_id FROM openmrs.obs obs
-                                                WHERE obs.concept_id=984
-                                                AND obs.value_coded=83531))
-               OR (vaccination.patient_id IN (SELECT obs.person_id FROM openmrs.obs obs
-                                                WHERE obs.concept_id=984
-                                                AND obs.value_coded=783)
-               AND vaccination.patient_id IN (SELECT obs.person_id FROM openmrs.obs obs
-                                                WHERE obs.concept_id=984
-                                                AND obs.value_coded=781)
-               AND vaccination.patient_id IN (SELECT obs.person_id FROM openmrs.obs obs
-                                                WHERE obs.concept_id=984
-                                                AND obs.value_coded=83531)
-               AND vaccination.patient_id IN (SELECT obs.person_id FROM openmrs.obs obs
-                                                WHERE obs.concept_id=782
-                                                AND obs.value_coded=83531)
-               AND vaccination.patient_id IN (SELECT obs.person_id FROM openmrs.obs obs
-                                                WHERE obs.concept_id=782
-                                                AND obs.value_coded=5261));
+			/*Create temporary table for query vaccination dates*/
+			CREATE TABLE temp_vaccination (
+				person_id int(11),
+				value_coded int(11),
+				dose int(11),
+				obs_group_id int(11),
+				obs_datetime datetime,
+				encounter_id int(11)
+			);
+			
+			/*Set age range (day)*/
+			UPDATE isanteplus.vaccination v, isanteplus.patient p
+			SET v.age_range=
+				CASE
+					WHEN (	
+						TIMESTAMPDIFF(DAY, p.birthdate, v.encounter_date) BETWEEN 0 AND 45 
+					) THEN 45
+					WHEN TIMESTAMPDIFF(DAY, p.birthdate, v.encounter_date) BETWEEN 46 AND 75  
+						THEN 75
+					WHEN TIMESTAMPDIFF(DAY, p.birthdate, v.encounter_date) BETWEEN 76 AND 105 
+						THEN 105
+					WHEN TIMESTAMPDIFF(DAY, p.birthdate, v.encounter_date) BETWEEN 106 AND 270 
+						THEN 270
+					ELSE null
+				END
+			WHERE v.patient_id = p.patient_id;
 
+			/*Query for receive vaccination dates*/
+			INSERT INTO temp_vaccination (person_id, value_coded, dose, obs_group_id, obs_datetime, encounter_id)
+			SELECT ob.person_id, ob.value_coded, ob2.value_numeric, ob.obs_group_id, ob.obs_datetime, ob.encounter_id 
+			FROM openmrs.obs ob, openmrs.obs ob2
+			WHERE ob2.obs_group_id = ob.obs_group_id 
+			AND ob2.concept_id=1418
+			AND ob.concept_id=984;
+			
+			/*Update vaccination table for children 0-45 days old*/
+			UPDATE isanteplus.vaccination v
+			SET v.vaccination_done = true
+			WHERE v.age_range=45
+			AND (
+				( -- Scenario A 0-45
+					3 = (SELECT count(tv.person_id) FROM temp_vaccination tv WHERE tv.encounter_id=v.encounter_id AND tv.dose=1 AND tv.value_coded IN (783, 1423, 83531))
+				)
+				OR ( -- Scenario B 0-45
+					5 = (SELECT count(tv.person_id) FROM temp_vaccination tv WHERE tv.encounter_id=v.encounter_id AND tv.dose=1 AND tv.value_coded IN (781, 782, 783, 5261, 83531))
+				)
+			);
 
-			SET FOREIGN_KEY_CHECKS=1;	  
-		    SET SQL_SAFE_UPDATES = 1;
+			/*Update vaccination table for children 46-75 days old*/
+			UPDATE isanteplus.vaccination v
+			SET v.vaccination_done = true
+			WHERE v.age_range=75
+			AND (
+				( -- Scenario A 46-75
+					-- Dose 1
+					3 = (SELECT count(tv.person_id) FROM temp_vaccination tv WHERE tv.encounter_id=v.encounter_id AND tv.dose=1 AND tv.value_coded IN (783, 1423, 83531))			
+					-- Dose 2
+					AND 3 = (SELECT count(tv.person_id) FROM temp_vaccination tv WHERE tv.encounter_id=v.encounter_id AND tv.dose=2 AND tv.value_coded IN (783, 1423, 83531))			
+				)
+				OR ( -- Scenario B 46-75
+					-- Dose 1
+					5 = (SELECT  count(tv.person_id) FROM temp_vaccination tv WHERE tv.encounter_id=v.encounter_id AND tv.dose=1 AND tv.value_coded IN (781, 782, 783, 5261, 83531))		
+					-- Dose 2
+					AND 5 = (SELECT  count(tv.person_id) FROM temp_vaccination tv WHERE tv.encounter_id=v.encounter_id AND tv.dose=2 AND tv.value_coded IN (781, 782, 783, 5261, 83531))		
+				)
+			);
+
+			/*Update vaccination table for children 76-105 days old*/
+			UPDATE isanteplus.vaccination v
+			SET v.vaccination_done = true
+			WHERE v.age_range=105
+			AND (
+				( -- Scenario A 76-105
+					-- Dose 1
+					3 = (SELECT count(tv.person_id) FROM temp_vaccination tv WHERE tv.encounter_id=v.encounter_id AND tv.dose=1 AND tv.value_coded IN (783, 1423, 83531))					
+					-- Dose 2
+					AND 3 = (SELECT count(tv.person_id) FROM temp_vaccination tv WHERE tv.encounter_id=v.encounter_id AND tv.dose=2 AND tv.value_coded IN (783, 1423, 83531))			
+					-- Dose 3
+					AND 2 = (SELECT count(tv.person_id) FROM temp_vaccination tv WHERE tv.encounter_id=v.encounter_id AND tv.dose=2 AND tv.value_coded IN (783, 1423))			
+				)
+				OR ( -- Scenario B 76-105
+					-- Dose 1
+					5 = (SELECT  count(tv.person_id) FROM temp_vaccination tv WHERE tv.encounter_id=v.encounter_id AND tv.dose=1 AND tv.value_coded IN (781, 782, 783, 5261, 83531))					
+					-- Dose 2
+					AND 5 = (SELECT  count(tv.person_id) FROM temp_vaccination tv WHERE tv.encounter_id=v.encounter_id AND tv.dose=2 AND tv.value_coded IN (781, 782, 783, 5261, 83531))	
+					-- Dose 3
+					AND 4 = (SELECT  count(tv.person_id) FROM temp_vaccination tv WHERE tv.encounter_id=v.encounter_id AND tv.dose=3 AND tv.value_coded IN (781, 782, 783, 5261))	
+				)
+			);
+
+			/*Update vaccination table for children 106-270 days old*/
+			UPDATE isanteplus.vaccination v
+			SET v.vaccination_done = true
+			WHERE v.age_range=270
+			AND (
+				( -- Scenario A 106-270
+					-- Dose 1
+					3 = (SELECT  count(tv.person_id) FROM temp_vaccination tv WHERE tv.encounter_id=v.encounter_id AND tv.dose=1 AND tv.value_coded IN (783, 1423, 83531))					
+					AND (
+						159701 IN (SELECT tv.value_coded FROM temp_vaccination tv WHERE tv.encounter_id=v.encounter_id AND tv.dose=1)
+						OR 162586 IN (SELECT tv.value_coded FROM temp_vaccination tv WHERE tv.encounter_id=v.encounter_id AND tv.dose=1)
+					)
+					-- Dose 2
+					AND 3 = (SELECT  count(tv.person_id) FROM temp_vaccination tv WHERE tv.encounter_id=v.encounter_id AND tv.dose=2 AND tv.value_coded IN (783, 1423, 83531))					
+					AND ((
+							159701 IN (SELECT tv.value_coded FROM temp_vaccination tv WHERE tv.encounter_id=v.encounter_id AND tv.dose=2)
+							AND 159701 IN (SELECT tv.value_coded FROM temp_vaccination tv WHERE tv.encounter_id=v.encounter_id AND tv.dose=1)
+						) OR (
+							159701 NOT IN (SELECT tv.value_coded FROM temp_vaccination tv WHERE tv.encounter_id=v.encounter_id AND tv.dose=1)
+						)
+					)
+					-- Dose 3
+					AND 2 = (SELECT  count(tv.person_id) FROM temp_vaccination tv WHERE tv.encounter_id=v.encounter_id AND tv.dose=3 AND tv.value_coded IN (783, 1423))					
+				)
+				OR ( -- Scenario B 106-270
+					-- Dose 1
+					5 = (SELECT  count(tv.person_id) FROM temp_vaccination tv WHERE tv.encounter_id=v.encounter_id AND tv.dose=1 AND tv.value_coded IN (781, 782, 783, 5261, 83531))					
+					AND (
+						159701 IN (SELECT tv.value_coded FROM temp_vaccination tv WHERE tv.encounter_id=v.encounter_id AND tv.dose=1)
+						OR 162586 IN (SELECT tv.value_coded FROM temp_vaccination tv WHERE tv.encounter_id=v.encounter_id AND tv.dose=1)
+					)
+					-- Dose 2
+					AND 5 = (SELECT  count(tv.person_id) FROM temp_vaccination tv WHERE tv.encounter_id=v.encounter_id AND tv.dose=2 AND tv.value_coded IN (781, 782, 783, 5261, 83531))					
+					AND ((
+							159701 IN (SELECT tv.value_coded FROM temp_vaccination tv WHERE tv.encounter_id=v.encounter_id AND tv.dose=2)
+							AND 159701 IN (SELECT tv.value_coded FROM temp_vaccination tv WHERE tv.encounter_id=v.encounter_id AND tv.dose=1)
+						) OR (
+							159701 NOT IN (SELECT tv.value_coded FROM temp_vaccination tv WHERE tv.encounter_id=v.encounter_id AND tv.dose=1)
+						)
+					)
+					-- Dose 3
+					AND 4 = (SELECT  count(tv.person_id) FROM temp_vaccination tv WHERE tv.encounter_id=v.encounter_id AND tv.dose=3 AND tv.value_coded IN (781, 782, 783, 5261))					
+				)
+			);
+			DROP TABLE if exists `temp_vaccination`;
+	COMMIT;
+
+		SET FOREIGN_KEY_CHECKS=1;	  
+		SET SQL_SAFE_UPDATES = 1;
 		 /*End of DML queries*/
 	    END$$
 DELIMITER ;
