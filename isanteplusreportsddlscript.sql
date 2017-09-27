@@ -49,10 +49,6 @@ CREATE TABLE  if not exists `patient_visit` (
   `creator` varchar(20) DEFAULT NULL,
   `encounter_type` int(11) DEFAULT NULL,
   `form_id` int(11) DEFAULT NULL,
-  `patient_bmi` double DEFAULT NULL,
-  `adherence_evaluation` int(11) DEFAULT NULL,
-  `family_planning_method_used` boolean DEFAULT false,
-  `evaluated_of_tb` boolean DEFAULT false,
   `next_visit_date` date DEFAULT NULL,
   `last_insert_date` date DEFAULT NULL,
   KEY `location_id` (`location_id`),
@@ -355,8 +351,6 @@ CREATE TABLE IF NOT EXISTS patient_delivery(
 	ptme int(11),
 	prophylaxie72h int(11),
 	actual_vih_status int(11),
-	nutritional_assessment_completed boolean DEFAULT false,
-	is_active_tb boolean DEFAULT false,
 	encounter_date date,
 	constraint pk_pediatric_hiv_visit PRIMARY KEY (patient_id,encounter_id,location_id));
 	
@@ -392,6 +386,24 @@ CREATE TABLE IF NOT EXISTS patient_delivery(
 	age_range int(11),
 	vaccination_done boolean DEFAULT false,
 	constraint pk_vaccination PRIMARY KEY (patient_id,encounter_id,location_id));
+
+	/*Create table for health qual visits*/
+	DROP TABLE IF EXISTS health_qual_patient_visit;
+	CREATE TABLE IF NOT EXISTS health_qual_patient_visit(
+	patient_id int(11),
+	encounter_id int(11),
+	visit_date date,
+	visit_id int(11),
+	location_id int(11),
+	encounter_type int(11) DEFAULT NULL,
+	patient_bmi double DEFAULT NULL,
+	adherence_evaluation int(11) DEFAULT NULL,
+	family_planning_method_used boolean DEFAULT false,
+	evaluated_of_tb boolean DEFAULT false,
+	nutritional_assessment_completed boolean DEFAULT false,
+	is_active_tb boolean DEFAULT false,
+	last_insert_date date DEFAULT NULL,
+	constraint pk_health_qual_patient_visit PRIMARY KEY (patient_id, encounter_id, location_id));
 	
 
 GRANT SELECT ON isanteplus.* TO 'openmrs_user'@'localhost';

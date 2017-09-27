@@ -136,71 +136,116 @@ DELIMITER $$
 			AND vi.date_started=(select MAX(v.date_started) 
 			FROM openmrs.visit v WHERE v.patient_id=p.patient_id);
 
-			/*Update patient_visit table for having bmi*/
-			UPDATE isanteplus.patient_visit pv, (
-					SELECT hs.visit_id, ws.weight , hs.height, ( ws.weight / (hs.height*hs.height/10000) ) as 'patient_bmi'
-					FROM (
-						SELECT pv.visit_id, o.value_numeric as 'height' 
-						FROM isanteplus.patient_visit pv, openmrs.obs o, openmrs.encounter e 
-						WHERE o.person_id = pv.patient_id 
-						AND pv.visit_id = e.visit_id
-						AND e.encounter_id= o.encounter_id 
-						AND e.encounter_id = pv.encounter_id
-						AND o.concept_id = 5090
-					) AS hs 
-					JOIN (
-						SELECT pv.visit_id, o.value_numeric as 'weight' 
-						FROM isanteplus.patient_visit pv, openmrs.obs o, openmrs.encounter e 
-						WHERE o.person_id = pv.patient_id 
-						AND pv.visit_id = e.visit_id
-						AND e.encounter_id= o.encounter_id 
-						AND e.encounter_id = pv.encounter_id
-						AND o.concept_id = 5089
-					) AS ws
-					ON hs.visit_id = ws.visit_id
-					) as bmi
-			SET pv.patient_bmi = bmi.patient_bmi
-			WHERE pv.visit_id = bmi.visit_id;
 
-			/*Update patient_visit table for having family method planning indicator.*/
-			UPDATE isanteplus.patient_visit pv, (
-			  SELECT pv.visit_id, o.value_coded
-				FROM isanteplus.patient_visit pv, openmrs.obs o, openmrs.encounter e 
-				WHERE o.person_id = pv.patient_id 
-				AND pv.visit_id = e.visit_id
-				AND e.encounter_id= o.encounter_id 
-				AND e.encounter_id = pv.encounter_id
-				AND o.concept_id=374) AS family_planning
-			SET pv.family_planning_method_used = true
-			WHERE family_planning.visit_id = pv.visit_id 
-			AND value_coded IS NOT NULL;
+      /* Insert data to health_qual_patient_visit table */
+      REPLACE INTO health_qual_patient_visit (visit_date, visit_id, encounter_id, location_id, patient_id, encounter_type, last_insert_date)
+        SELECT v.date_started AS visit_date, v.visit_id, e.encounter_id,v.location_id, v.patient_id, e.encounter_type, now() as last_insert_date
+        FROM openmrs.visit v,openmrs.encounter e,openmrs.obs o
+        WHERE v.visit_id = e.visit_id
+          AND v.patient_id = e.patient_id
+          AND o.person_id = e.patient_id
+          AND o.encounter_id = e.encounter_id;
 
-			/*Update patient_visit table for adherence evaluation.*/
-			UPDATE isanteplus.patient_visit pv, (
-			  SELECT pv.visit_id, o.value_numeric
-				FROM isanteplus.patient_visit pv, openmrs.obs o, openmrs.encounter e
-				WHERE o.person_id = pv.patient_id
-				AND pv.visit_id = e.visit_id
-				AND e.encounter_id= o.encounter_id
-				AND o.concept_id=163710) AS adherence
-			SET pv.adherence_evaluation = adherence.value_numeric
-			WHERE adherence.visit_id = pv.visit_id
-			AND value_numeric IS NOT NULL;
+			/*Update health_qual_patient_visit table for having bmi*/
+			UPDATE isanteplus.health_qual_patient_visit pv, (
+        SELECT hs.visit_id, ws.weight , hs.height, ( ws.weight / (hs.height*hs.height/10000) ) as 'patient_bmi'
+        FROM (
+          SELECT pv.visit_id, o.value_numeric as 'height'
+          FROM isanteplus.health_qual_patient_visit pv, openmrs.obs o, openmrs.encounter e
+          WHERE o.person_id = pv.patient_id
+            AND pv.visit_id = e.visit_id
+            AND e.encounter_id= o.encounter_id
+            AND e.encounter_id = pv.encounter_id
+            AND o.concept_id = 5090
+          ) AS hs
+        JOIN (
+          SELECT pv.visit_id, o.value_numeric as 'weight'
+          FROM isanteplus.health_qual_patient_visit pv, openmrs.obs o, openmrs.encounter e
+          WHERE o.person_id = pv.patient_id
+            AND pv.visit_id = e.visit_id
+            AND e.encounter_id= o.encounter_id
+            AND e.encounter_id = pv.encounter_id
+            AND o.concept_id = 5089
+          ) AS ws
+        ON hs.visit_id = ws.visit_id
+        ) as bmi
+        SET pv.patient_bmi = bmi.patient_bmi
+        WHERE pv.visit_id = bmi.visit_id;
 
-			/*Update patient_visit table for evaluation of TB flag.*/
-			UPDATE isanteplus.patient_visit pv, (
-			  SELECT pv.visit_id, o.value_coded
-				FROM isanteplus.patient_visit pv, openmrs.obs o, openmrs.encounter e 
-				WHERE o.person_id = pv.patient_id 
-				AND pv.visit_id = e.visit_id
-				AND e.encounter_id= o.encounter_id 
-				AND e.encounter_id = pv.encounter_id
-				AND (
-					o.concept_id IN (160265, 1659, 1110, 163283, 162320, 163284, 1633, 1389, 163951, 159431, 1113, 159798, 159398)
-				)) AS evaluation_of_tb
-			SET pv.evaluated_of_tb = true
-			WHERE evaluation_of_tb.visit_id = pv.visit_id 
-			AND value_coded IS NOT NULL;
+        /*Update patient_visit table for having family method planning indicator.*/
+        UPDATE isanteplus.health_qual_patient_visit pv, (
+          SELECT pv.visit_id, o.value_coded
+          FROM isanteplus.health_qual_patient_visit pv, openmrs.obs o, openmrs.encounter e
+          WHERE o.person_id = pv.patient_id
+            AND pv.visit_id = e.visit_id
+            AND e.encounter_id= o.encounter_id
+            AND e.encounter_id = pv.encounter_id
+            AND o.concept_id=374) AS family_planning
+        SET pv.family_planning_method_used = true
+        WHERE family_planning.visit_id = pv.visit_id
+          AND value_coded IS NOT NULL;
+
+        /*Update health_qual_patient_visit table for adherence evaluation.*/
+        UPDATE isanteplus.health_qual_patient_visit pv, (
+          SELECT pv.visit_id, o.value_numeric
+          FROM isanteplus.health_qual_patient_visit pv, openmrs.obs o, openmrs.encounter e
+          WHERE o.person_id = pv.patient_id
+            AND pv.visit_id = e.visit_id
+            AND e.encounter_id= o.encounter_id
+            AND o.concept_id=163710) AS adherence
+        SET pv.adherence_evaluation = adherence.value_numeric
+        WHERE adherence.visit_id = pv.visit_id
+          AND value_numeric IS NOT NULL;
+
+        /*Update health_qual_patient_visit table for evaluation of TB flag.*/
+        UPDATE isanteplus.health_qual_patient_visit pv, (
+          SELECT pv.visit_id, o.value_coded
+          FROM isanteplus.health_qual_patient_visit pv, openmrs.obs o, openmrs.encounter e
+          WHERE o.person_id = pv.patient_id
+            AND pv.visit_id = e.visit_id
+            AND e.encounter_id= o.encounter_id
+            AND e.encounter_id = pv.encounter_id
+            AND (
+              o.concept_id IN (160265, 1659, 1110, 163283, 162320, 163284, 1633, 1389, 163951, 159431, 1113, 159798, 159398)
+            )) AS evaluation_of_tb
+        SET pv.evaluated_of_tb = true
+        WHERE evaluation_of_tb.visit_id = pv.visit_id
+          AND value_coded IS NOT NULL;
+
+        /*update for nutritional_assessment_status*/
+        UPDATE isanteplus.health_qual_patient_visit hqpv, (
+          SELECT pv.encounter_id, o.concept_id
+          FROM isanteplus.health_qual_patient_visit pv, openmrs.obs o, openmrs.encounter e
+          WHERE o.person_id = pv.patient_id
+            AND pv.visit_id = e.visit_id
+            AND e.encounter_id= o.encounter_id
+            AND e.encounter_id = pv.encounter_id
+          ) AS visits
+        SET hqpv.nutritional_assessment_completed = true
+        WHERE
+          visits.encounter_id = hqpv.encounter_id
+          AND (
+            (visits.concept_id = 5089 AND 5090)
+            OR visits.concept_id = 5314
+            OR visits.concept_id = 1343
+          );
+
+        /*update for is_active_tb*/
+        UPDATE isanteplus.health_qual_patient_visit hqpv, (
+          SELECT pv.encounter_id, o.concept_id, o.value_coded
+          FROM isanteplus.health_qual_patient_visit pv, openmrs.obs o, openmrs.encounter e
+          WHERE o.person_id = pv.patient_id
+            AND pv.visit_id = e.visit_id
+            AND e.encounter_id= o.encounter_id
+            AND e.encounter_id = pv.encounter_id
+          ) AS visits
+        SET hqpv.is_active_tb = true
+        WHERE
+          visits.encounter_id = hqpv.encounter_id
+          AND (
+            (visits.concept_id=160592 AND visits.value_coded=113489)
+            OR (visits.concept_id=160749 AND visits.value_coded=1065)
+          );
 
 		
 		/*---------------------------------------------------*/	
@@ -1040,40 +1085,6 @@ replace into virological_tests
 	 WHERE ob.concept_id=1401
 		   and pv.encounter_id=ob.encounter_id
 		   AND pv.location_id=ob.location_id;
-	/*update for nutritional_assessment_status*/
-	UPDATE isanteplus.pediatric_hiv_visit phv, (
-		SELECT pv.encounter_id, o.concept_id
-		FROM isanteplus.patient_visit pv, openmrs.obs o, openmrs.encounter e 
-		WHERE o.person_id = pv.patient_id 
-			AND pv.visit_id = e.visit_id
-			AND e.encounter_id= o.encounter_id 
-			AND e.encounter_id = pv.encounter_id
-		) AS visits
-	SET phv.nutritional_assessment_completed = true
-	WHERE 
-		visits.encounter_id = phv.encounter_id
-		AND (
-			(visits.concept_id = 5089 AND 5090) 
-			OR visits.concept_id = 5314
-			OR visits.concept_id = 1343
-		);
-	/*update for is_active_tb*/
-		UPDATE isanteplus.pediatric_hiv_visit phv, (
-			SELECT pv.encounter_id, o.concept_id, o.value_coded
-			FROM isanteplus.patient_visit pv, openmrs.obs o, openmrs.encounter e 
-			WHERE o.person_id = pv.patient_id 
-				AND pv.visit_id = e.visit_id
-				AND e.encounter_id= o.encounter_id 
-				AND e.encounter_id = pv.encounter_id
-			) AS visits
-		SET phv.is_active_tb = true
-		WHERE 
-			visits.encounter_id = phv.encounter_id
-			AND (
-				(visits.concept_id=160592 AND visits.value_coded=113489)
-				OR (visits.concept_id=160749 AND visits.value_coded=1065)
-			);
-
 		   
 /*End of pediatric_hiv_visit table*/
 /*Starting Insertion for table patient_menstruation*/
