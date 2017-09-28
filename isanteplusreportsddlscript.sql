@@ -402,6 +402,7 @@ CREATE TABLE IF NOT EXISTS patient_delivery(
 	evaluated_of_tb boolean DEFAULT false,
 	nutritional_assessment_completed boolean DEFAULT false,
 	is_active_tb boolean DEFAULT false,
+	age_in_years int(11),
 	last_insert_date date DEFAULT NULL,
 	constraint pk_health_qual_patient_visit PRIMARY KEY (patient_id, encounter_id, location_id));
 	
