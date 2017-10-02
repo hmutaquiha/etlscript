@@ -155,15 +155,15 @@ VALUES(70056,'Abacavir(ABC)', DATE(now())),
 	  (154378,'Raltegravir', DATE(now()));
 
 /*Table that contains the labels of ARV status*/
-DROP TABLE IF EXISTS ARV_status_loockup;
-	CREATE TABLE IF NOT EXISTS ARV_status_loockup(
+DROP TABLE IF EXISTS arv_status_loockup;
+	CREATE TABLE IF NOT EXISTS arv_status_loockup(
 	id int primary key auto_increment,
 	name_en varchar(50),
 	name_fr varchar(50),
 	definition longtext,
 	insertDate date);
 
-	insert into ARV_status_loockup values 
+	insert into arv_status_loockup values 
 	(1,'Death on ART','Décédés','Tout patient mis sous ARV et ayant un rapport d’arrêt rempli pour motif de décès',date(now())),
 	(2,'Stopped','Arrêtés','Tout patient mis sous ARV et ayant un rapport d’arrêt rempli pour motif d’arrêt de traitement',date(now())),
 	(3,'Transfert','Transférés','Tout patient mis sous ARV et ayant un rapport d’arrêt rempli pour motif de transfert',date(now())),
@@ -200,8 +200,8 @@ Raison d'arrêt inconnue=1067
 	CONSTRAINT pk_dreason PRIMARY KEY (patient_id,visit_id,reason)
 	);
 /*Table patient_status_ARV contains all patients and their status*/
-	DROP TABLE IF EXISTS patient_status_ARV;
-	create table if not exists patient_status_ARV(
+	DROP TABLE IF EXISTS patient_status_arv;
+	create table if not exists patient_status_arv(
 	patient_id int(11),
 	id_status int,
 	start_date date,

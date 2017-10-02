@@ -402,7 +402,7 @@ SELECT DISTINCT v.patient_id,v.visit_id,
 	
 	
 	/*Insertion for patient_status Décédés=1,Arrêtés=2,Transférés=3 on ARV*/
-REPLACE INTO patient_status_ARV(patient_id,id_status,start_date)
+REPLACE INTO patient_status_arv(patient_id,id_status,start_date)
 	SELECT DISTINCT v.patient_id,
 	CASE WHEN (ob.value_coded=159) THEN 1
 	WHEN (ob.value_coded=5240) THEN 2
@@ -423,7 +423,7 @@ REPLACE INTO patient_status_ARV(patient_id,id_status,start_date)
 /*====================================================*/
 /*Insertion for patient_status Décédés en Pré-ARV=4,
 Transférés en Pré-ARV=5*/
-REPLACE INTO patient_status_ARV(patient_id,id_status,start_date)
+REPLACE INTO patient_status_arv(patient_id,id_status,start_date)
 	SELECT DISTINCT v.patient_id,
 	CASE WHEN (ob.value_coded=159) THEN 4
 	WHEN (ob.value_coded=159492) THEN 5
@@ -444,7 +444,7 @@ REPLACE INTO patient_status_ARV(patient_id,id_status,start_date)
 	GROUP BY v.patient_id;
 	/*Insertion for patient_status réguliers=6*/
 /*A VERIFIER*/
-REPLACE INTO patient_status_ARV(patient_id,id_status,start_date)
+REPLACE INTO patient_status_arv(patient_id,id_status,start_date)
 	SELECT DISTINCT v.patient_id,6,MAX(v.start_date)
 	FROM isanteplus.patient ipat,isanteplus.patient_visit v,
 	openmrs.encounter enc,
@@ -464,7 +464,7 @@ REPLACE INTO patient_status_ARV(patient_id,id_status,start_date)
 	AND(DATE(now()) < v.next_visit_date)
 	GROUP BY v.patient_id;
 /*Insertion for patient_status Rendez-vous ratés=8*/
-  REPLACE INTO patient_status_ARV(patient_id,id_status,start_date)
+  REPLACE INTO patient_status_arv(patient_id,id_status,start_date)
 	SELECT DISTINCT v.patient_id,8,MAX(v.start_date)
 	FROM isanteplus.patient ipat,isanteplus.patient_visit v,
 	openmrs.encounter enc,
@@ -503,7 +503,7 @@ REPLACE INTO patient_status_ARV(patient_id,id_status,start_date)
 	AND (DATEDIFF(DATE(now()),pdis.next_dispensation_date)<=90)
 	GROUP BY pdis.patient_id;		
 /*Insertion for patient_status Perdus de vue=9*/
-REPLACE INTO patient_status_ARV(patient_id,id_status,start_date)
+REPLACE INTO patient_status_arv(patient_id,id_status,start_date)
 	SELECT DISTINCT v.patient_id,9,MAX(v.start_date)
 	FROM isanteplus.patient_visit v,openmrs.encounter enc,
 	openmrs.encounter_type entype
@@ -532,7 +532,7 @@ REPLACE INTO patient_status_ARV(patient_id,id_status,start_date)
 	
 /*INSERTION for patient status,
      Perdus de vue en Pré-ARV=10 */
-REPLACE INTO patient_status_ARV(patient_id,id_status,start_date)
+REPLACE INTO patient_status_arv(patient_id,id_status,start_date)
 	SELECT DISTINCT v.patient_id,10,
 	MAX(v.date_started)
 	FROM isanteplus.patient ispat,
@@ -559,7 +559,7 @@ REPLACE INTO patient_status_ARV(patient_id,id_status,start_date)
 	GROUP BY ispat.patient_id;
 	/*=========================================================*/
 	/*INSERTION for patient status Recent on PRE-ART=7,Actifs en Pré-ARV=11 */
-REPLACE INTO patient_status_ARV(patient_id,id_status,start_date)
+REPLACE INTO patient_status_arv(patient_id,id_status,start_date)
 	SELECT DISTINCT v.patient_id,
 	CASE WHEN 
 		(TIMESTAMPDIFF(MONTH,v.date_started,DATE(now()))<=12)
@@ -599,16 +599,16 @@ REPLACE INTO patient_status_ARV(patient_id,id_status,start_date)
 	
 	/*===========================================================*/
 	/*UPDATE Discontinuations reason in table patient_status_ARV*/
-	UPDATE patient_status_ARV psarv,discontinuation_reason dreason
+	UPDATE patient_status_arv psarv,discontinuation_reason dreason
 	       SET psarv.dis_reason=dreason.reason
 		   WHERE psarv.patient_id=dreason.patient_id
 		   AND psarv.start_date=dreason.visit_date;	
    /*Update patient table for having the last patient arv status*/	
-   update patient p,patient_status_ARV psa
+   update patient p,patient_status_arv psa
      SET p.arv_status=psa.id_status
 	 WHERE p.patient_id=psa.patient_id
 	 AND psa.start_date = (SELECT MAX(psarv.start_date) 
-	                       FROM patient_status_ARV psarv
+	                       FROM patient_status_arv psarv
 						   WHERE psarv.patient_id=p.patient_id);
 /*End of patient Status*/
 /*Starting patient_prescription*/
