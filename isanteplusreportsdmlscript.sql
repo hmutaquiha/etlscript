@@ -57,8 +57,9 @@ DELIMITER $$
 			and pit.uuid="05a29f94-c0ed-11e2-94be-8c13b969e334";
 
 			/* update location_id for patients*/
-				update patient p,(select distinct patient_id,location_id from openmrs.patient_identifier) pi set p.location_id=pi.location_id 
-				where p.patient_id=pi.patient_id;
+				update patient p,(select distinct pid.patient_id,pid.location_id from openmrs.patient_identifier pid, openmrs.patient_identifier_type pidt WHERE pid.identifier_type=pidt.patient_identifier_type_id AND pidt.uuid="05a29f94-c0ed-11e2-94be-8c13b969e334") pi set p.location_id=pi.location_id 
+				where p.patient_id=pi.patient_id
+                                 AND pi.location_id is not null;
 				
 			/* update patient with person attribute */
 			
