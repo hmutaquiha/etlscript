@@ -57,28 +57,41 @@ DELIMITER $$
 			and pit.uuid="05a29f94-c0ed-11e2-94be-8c13b969e334";
 
 			/* update location_id for patients*/
-				update patient p,(select distinct patient_id,location_id from openmrs.patient_identifier) pi set p.location_id=pi.location_id 
-				where p.patient_id=pi.patient_id;
-				
+				update patient p,(select distinct pid.patient_id,pid.location_id from openmrs.patient_identifier pid, openmrs.patient_identifier_type pidt WHERE pid.identifier_type=pidt.patient_identifier_type_id AND pidt.uuid="05a29f94-c0ed-11e2-94be-8c13b969e334") pi set p.location_id=pi.location_id 
+				where p.patient_id=pi.patient_id
+                                 AND pi.location_id is not null;
+			/*update patient with address*/	
+			update patient p, openmrs.person_address padd 
+			SET p.last_address=
+            CASE WHEN ((padd.address1 <> '' AND padd.address1 is not null) 
+            AND (padd.address2 <> '' AND padd.address2 is not null))
+              THEN CONCAT(padd.address1,' ',padd.address2)
+            WHEN ((padd.address1 <> '' AND padd.address1 is not null) 
+            AND (padd.address2 = '' OR padd.address2 is null))
+               THEN padd.address1
+			ELSE
+              padd.address2
+            END
+			WHERE p.patient_id = padd.person_id;
 			/* update patient with person attribute */
 			
 			update patient pat,(
 			select  
 			(select p1.value from openmrs.person_attribute p1
-			where p1.person_id=p.person_id and
-			pa.uuid='8d8718c2-c2cc-11de-8d13-0010c6dffd0f' LIMIT 1) as birthPlace,
+			where p1.person_id=p.person_id and pa.person_attribute_type_id=p1.person_attribute_type_id
+			and pa.uuid='8d8718c2-c2cc-11de-8d13-0010c6dffd0f' LIMIT 1) as birthPlace,
 			(select p1.value from openmrs.person_attribute p1 
-			where p1.person_id=p.person_id and
-			pa.uuid='14d4f066-15f5-102d-96e4-000c29c2a5d7' LIMIT 1) as phone,
+			where p1.person_id=p.person_id and pa.person_attribute_type_id=p1.person_attribute_type_id
+			and pa.uuid='14d4f066-15f5-102d-96e4-000c29c2a5d7' LIMIT 1) as phone,
 			(select p1.value from openmrs.person_attribute p1 
-			where p1.person_id=p.person_id and 
-			pa.uuid='8d871f2a-c2cc-11de-8d13-0010c6dffd0f' LIMIT 1) as civilStatus,
+			where p1.person_id=p.person_id and pa.person_attribute_type_id=p1.person_attribute_type_id
+			and pa.uuid='8d871f2a-c2cc-11de-8d13-0010c6dffd0f' LIMIT 1) as civilStatus,
 			(select p1.value from openmrs.person_attribute p1 
-			where p1.person_id=p.person_id and 
-			pa.uuid='e55fd643-a731-4ff4-83c1-c07827b19722' LIMIT 1) as occupation,
+			where p1.person_id=p.person_id and pa.person_attribute_type_id=p1.person_attribute_type_id
+			and pa.uuid='e55fd643-a731-4ff4-83c1-c07827b19722' LIMIT 1) as occupation,
 			(select p1.value from openmrs.person_attribute p1 
-			where p1.person_id=p.person_id and 
-			pa.uuid='8d871d18-c2cc-11de-8d13-0010c6dffd0f' LIMIT 1) as motherName,
+			where p1.person_id=p.person_id and pa.person_attribute_type_id=p1.person_attribute_type_id
+			and pa.uuid='8d871d18-c2cc-11de-8d13-0010c6dffd0f' LIMIT 1) as motherName,
 			p.* from openmrs.person_attribute p,openmrs.person_attribute_type pa
 			where  pa.person_attribute_type_id=p.person_attribute_type_id
 			) p2 set pat.maritalStatus=p2.civilStatus,
