@@ -2,11 +2,6 @@ DROP DATABASE if exists isanteplus;
 create database if not exists isanteplus;
 SET GLOBAL event_scheduler = 1 ;
 use isanteplus;
-DROP TABLE if exists `patient_imagerie`;
-DROP TABLE if exists patient_dispensing;
-DROP TABLE if exists `patient_tb_diagnosis`;
-DROP TABLE if exists `patient_visit`;
-DROP TABLE if exists `patient`;
 CREATE TABLE if not exists `patient` (
   `identifier` varchar(50) DEFAULT NULL,
   `st_id` varchar(50) DEFAULT NULL,
@@ -56,7 +51,7 @@ CREATE TABLE  if not exists `patient_visit` (
   KEY `patient_id` (`patient_id`),
   KEY `visit_id` (`visit_id`),
   KEY `patient_visit_ibfk_3_idx` (`patient_id`),
-  CONSTRAINT `pk_visit` PRIMARY KEY(patient_id,visit_id),
+  CONSTRAINT `pk_visit` PRIMARY KEY(patient_id, encounter_id, location_id),
   CONSTRAINT `patient_visit_ibfk_3` FOREIGN KEY (`patient_id`) REFERENCES openmrs.`patient`(`patient_id`) ON DELETE NO ACTION ON UPDATE NO ACTION,
   CONSTRAINT `patient_visit_ibfk_2` FOREIGN KEY (`form_id`) REFERENCES openmrs.`form`(`form_id`),
   CONSTRAINT `patient_visit_ibfk_4` FOREIGN KEY (`location_id`) REFERENCES openmrs.`location`(`location_id`) ON DELETE NO ACTION ON UPDATE NO ACTION
