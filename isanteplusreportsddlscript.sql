@@ -165,7 +165,7 @@ DROP TABLE IF EXISTS arv_status_loockup;
 	(4,'Death on PRE-ART','Décédés en Pré-ARV',' Tout patient VIH+ non encore mis sous ARV ayant un rapport d’arrêt rempli pour cause de décès',date(now())),
 	(5,'Transferred on PRE-ART','Transférés en Pré-ARV','Tout patient VIH+ non encore mis sous ARV ayant un rapport d’arrêt rempli pour cause de transfert',date(now())),
 	(6,'Regular','Réguliers (actifs sous ARV)','Tout patient mis sous ARV et n’ayant aucun rapport d’arrêt rempli pour motifs de décès, de transfert, ni d’arrêt de traitement. La date de prochain rendez-vous clinique ou de prochaine collecte de médicaments est située dans le futur de la période d’analyse. (Fiches à ne pas considérer, labo et counseling)',date(now())),
-	(7,'Recent on PRE-ART','Récents Pré-ARV','Tout patient VIH+ non encore mis sous ARV ayant eu sa première visite (clinique « 1re visite VIH» ) au cours des 12 derniers mois tout en excluant tout patient ayant un rapport d’arrêt avec motifs décédé ou transféré',date(now())),
+	(7,'Recent on PRE-ART','Récents en Pré-ARV','Tout patient VIH+ non encore mis sous ARV ayant eu sa première visite (clinique « 1re visite VIH» ) au cours des 12 derniers mois tout en excluant tout patient ayant un rapport d’arrêt avec motifs décédé ou transféré',date(now())),
 	(8,'Missing appointment','Rendez-vous ratés','Tout patient mis sous ARV et n’ayant aucun rapport d’arrêt rempli pour motifs de décès, de transfert, ni d’arrêt de traitement. La date de la période d’analyse est supérieure à la date de rendez-vous clinique ou de collecte de médicaments la plus récente sans excéder 90 jours',date(now())),
 	(9,'Lost to follow-up','Perdus de vue','Tout patient mis sous ARV et n’ayant aucun rapport d’arrêt rempli pour motifs de décès, de transfert, ni d’arrêt de traitement. La date de la période d’analyse est supérieure à la date de rendez-vous clinique ou de collecte de médicaments la plus récente de plus de 90 jours',date(now())),
 	(10,'Lost to follow-up on PRE-ART','Perdus de vue en Pré-ARV','Tout patient VIH+ non encore mis sous ARV n’ayant eu aucune visite (clinique « 1re visite VIH et suivi VIH uniquement », pharmacie, labo) au cours des 12 derniers mois et n’étant ni décédé ni transféré',date(now())),
@@ -201,9 +201,8 @@ Raison d'arrêt inconnue=1067
 	id_status int,
 	start_date date,
 	end_date date,
-	dis_reason int(11),
-	CONSTRAINT pk_status_arv 
-	PRIMARY KEY (patient_id,id_status,start_date));
+	dis_reason int(11)
+	);
 	
 /*Create table for medicaments prescrits*/
 DROP TABLE IF EXISTS patient_prescription;
