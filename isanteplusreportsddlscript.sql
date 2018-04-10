@@ -178,6 +178,8 @@ DROP TABLE IF EXISTS arv_status_loockup;
 	patient_id int(11),
 	visit_id int(11),
 	visit_date date);
+	/*Create a index for patient_id on patient_on_arv table*/
+	create index patient_id_on_arv_index on patient_on_arv (patient_id);
 /*Table for all patients with reason of discontinuation
 Perte de contact avec le patient depuis plus de trois mois = 5240
 Transfert vers un autre établissement=159492
