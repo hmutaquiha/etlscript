@@ -61,7 +61,7 @@ INSERT INTO patient_status_arv_temp_a
 	/*Insertion for patient_status réguliers=6*/
 	INSERT INTO patient_status_arv_temp_a
 	SELECT v.patient_id as patient_id,6 as id_status,MAX(v.start_date) as start_date
-	FROM isanteplus.patient ipat,isanteplus.patient_visit v,
+	FROM isanteplus.patient ipat,isanteplus.patient_visit v, isanteplus.patient_on_arv p,
 	(select pv.patient_id, MAX(pv.next_visit_date) as mnext_visit from isanteplus.patient_visit pv group by 1) mnv,
 	openmrs.encounter enc,
 	openmrs.encounter_type entype
@@ -73,8 +73,7 @@ INSERT INTO patient_status_arv_temp_a
 	AND enc.patient_id
 	NOT IN(SELECT dreason.patient_id FROM discontinuation_reason dreason
 	WHERE dreason.reason IN(159,1667,159492))
-	AND enc.patient_id IN(SELECT parv.patient_id 
-	FROM isanteplus.patient_on_arv parv)
+	AND enc.patient_id = p.patient_id
 	AND entype.uuid NOT IN ('f037e97b-471e-4898-a07c-b8e169e0ddc4',
 	                        'a0d57dca-3028-4153-88b7-c67a30fde595',
 							'51df75f7-a3de-4f82-a9df-c0bedaf5a2dd'
@@ -84,7 +83,7 @@ INSERT INTO patient_status_arv_temp_a
 	
 	INSERT INTO patient_status_arv_temp_a
 	SELECT pdis.patient_id,6 as id_status,MAX(DATE(pdis.visit_date)) as start_date
-	FROM isanteplus.patient ipat,isanteplus.patient_dispensing pdis,
+	FROM isanteplus.patient ipat,isanteplus.patient_dispensing pdis,isanteplus.patient_on_arv p,
 	(select pdisp.patient_id, MAX(pdisp.next_dispensation_date) as mnext_disp from isanteplus.patient_dispensing pdisp group by 1) mndisp,
 	openmrs.encounter enc,
 	openmrs.encounter_type entype
@@ -96,8 +95,7 @@ INSERT INTO patient_status_arv_temp_a
 	AND enc.patient_id	
 	NOT IN(SELECT dreason.patient_id FROM discontinuation_reason dreason
 	WHERE dreason.reason IN(159,1667,159492))
-	AND enc.patient_id IN (SELECT parv.patient_id 
-	FROM isanteplus.patient_on_arv parv)
+	AND enc.patient_id = p.patient_id
 	AND entype.uuid NOT IN ('f037e97b-471e-4898-a07c-b8e169e0ddc4',
 	                        'a0d57dca-3028-4153-88b7-c67a30fde595',
 							'51df75f7-a3de-4f82-a9df-c0bedaf5a2dd'
