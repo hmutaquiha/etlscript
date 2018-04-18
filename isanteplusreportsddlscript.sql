@@ -322,6 +322,7 @@ DROP TABLE IF EXISTS virological_tests;
 	test_result int(11),
 	age int(11),
 	age_unit int(11),
+	test_date date,
 	constraint pk_virological_tests PRIMARY KEY (encounter_id,location_id,obs_group_id,test_id));
 	
 /* Create patient_delivery table */
@@ -401,6 +402,43 @@ CREATE TABLE IF NOT EXISTS patient_delivery(
 	age_in_years int(11),
 	last_insert_date date DEFAULT NULL,
 	constraint pk_health_qual_patient_visit PRIMARY KEY (patient_id, encounter_id, location_id));
+	/*Eposed infants table
+		
+	*/
+	DROP TABLE IF EXISTS exposed_infants;
+	CREATE table IF NOT EXISTS exposed_infants(
+		patient_id int(11),
+		location_id int(11),
+		encounter_id int(11),
+		visit_date date,
+		condition_exposee int(11)
+	);
+	/*serological_tests table*/
+	DROP TABLE IF EXISTS serological_tests;
+ CREATE TABLE IF NOT EXISTS serological_tests(
+	patient_id int(11),
+	encounter_id int(11),
+	location_id int(11),
+	encounter_date date,
+	concept_group int(11),
+	obs_group_id int(11),
+    test_id int(11),
+	answer_concept_id int(11),
+	test_result int(11),
+	age int(11),
+	age_unit int(11),
+	test_date date,
+	constraint pk_serological_tests PRIMARY KEY (encounter_id,location_id,obs_group_id,test_id));
 	
-
+	/*Create table patient_pcr*/
+	DROP TABLE IF EXISTS patient_pcr;
+	CREATE TABLE IF NOT EXISTS patient_pcr(
+		patient_id int(11),
+		encounter_id int(11),
+		location_id int(11),
+		visit_date date,
+		pcr_result int(11),
+		test_date date
+	);
+	
 GRANT SELECT ON isanteplus.* TO 'openmrs_user'@'localhost';

@@ -873,7 +873,19 @@ INSERT into virological_tests
     SET vtests.encounter_date=DATE(enc.encounter_datetime)
     WHERE vtests.location_id=enc.location_id
           AND vtests.encounter_id=enc.encounter_id;
-	
+	/*Update to fill test_date area*/
+	update virological_tests vtests, patient p 
+	SET vtests.test_date =
+	CASE WHEN(vtests.age_unit=1072 AND (ADDDATE(DATE(p.birthdate), INTERVAL vtests.age DAY) < DATE(now()))) 
+	THEN ADDDATE(DATE(p.birthdate), INTERVAL vtests.age DAY)
+	WHEN(vtests.age_unit=1074
+	AND (ADDDATE(DATE(p.birthdate), INTERVAL vtests.age MONTH) < DATE(now()))) THEN ADDDATE(DATE(p.birthdate), INTERVAL vtests.age MONTH)
+	ELSE
+		vtests.encounter_date
+	END
+	WHERE vtests.patient_id = p.patient_id
+	AND vtests.test_id = 162087
+	AND answer_concept_id = 1030;
 /*END of virological_tests table*/
 /*Part of pediatric_hiv_visit table*/
 	/*Insertion for pediatric_hiv_visit */
@@ -1148,6 +1160,90 @@ INSERT into virological_tests
       DROP TABLE if exists `temp_vaccination`;
     COMMIT;
 
+	
+	/*Part of serological tests*/
+		INSERT into serological_tests
+					(
+					 patient_id,
+					 encounter_id,
+					 location_id,
+					 concept_group,
+					 obs_group_id,
+					 test_id,
+					 answer_concept_id
+					)
+					select distinct ob.person_id,ob.encounter_id,
+					ob.location_id,ob1.concept_id,ob.obs_group_id,ob.concept_id, ob.value_coded
+					from openmrs.obs ob, openmrs.obs ob1
+					where ob.person_id=ob1.person_id
+					AND ob.encounter_id=ob1.encounter_id
+					AND ob.obs_group_id=ob1.obs_id
+                    AND ob1.concept_id=1361	
+					AND ob.concept_id=162087
+					AND ob.value_coded IN(163722,1042)
+					on duplicate key update
+					encounter_id = ob.encounter_id;
+	
+	/*Update for area test_result for tests serologiques*/
+	update serological_tests stests, openmrs.obs ob
+	 SET stests.test_result=ob.value_coded
+	 WHERE ob.concept_id=163722
+		   AND stests.obs_group_id=ob.obs_group_id
+		   and stests.encounter_id=ob.encounter_id
+		   AND stests.location_id=ob.location_id;
+	/*Update for area age for tests serologiques*/
+	update serological_tests stests, openmrs.obs ob
+	 SET stests.age=ob.value_numeric
+	 WHERE ob.concept_id=163540
+		   AND stests.obs_group_id=ob.obs_group_id
+		   and stests.encounter_id=ob.encounter_id
+		   AND stests.location_id=ob.location_id;
+	/*Update for age_unit for tests serologiques*/
+	update serological_tests stests, openmrs.obs ob
+	 SET stests.age_unit=ob.value_coded
+	 WHERE ob.concept_id=163541
+		   AND stests.obs_group_id=ob.obs_group_id
+		   and stests.encounter_id=ob.encounter_id
+		   AND stests.location_id=ob.location_id;
+	/*Update encounter date for serological_tests*/	   
+	update serological_tests stests, openmrs.encounter enc
+    SET stests.encounter_date=DATE(enc.encounter_datetime)
+    WHERE stests.location_id=enc.location_id
+          AND stests.encounter_id=enc.encounter_id;
+	/*End serological tests*/
+	
+	/*Update to fill test_date area*/
+	update serological_tests stests, patient p 
+	SET stests.test_date =
+	CASE WHEN(stests.age_unit=1072 AND (ADDDATE(DATE(p.birthdate), INTERVAL stests.age DAY) < DATE(now()))) 
+	THEN ADDDATE(DATE(p.birthdate), INTERVAL stests.age DAY)
+	WHEN(stests.age_unit=1074
+	AND (ADDDATE(DATE(p.birthdate), INTERVAL stests.age MONTH) < DATE(now()))) THEN ADDDATE(DATE(p.birthdate), INTERVAL stests.age MONTH)
+	ELSE
+		stests.encounter_date
+	END
+	WHERE stests.patient_id = p.patient_id
+	AND stests.test_id = 162087
+	AND answer_concept_id IN(163722,1042);
+/*END of virological_tests table*/
+	/*Insert pcr on patient_pcr*/
+	truncate table patient_pcr;
+	INSERT INTO patient_pcr(patient_id,encounter_id,location_id,visit_date,pcr_result, test_date)
+	SELECT distinct pl.patient_id,pl.encounter_id,pl.location_id,pl.visit_date,pl.test_result,pl.date_test_done 
+	FROM isanteplus.patient_laboratory pl
+	WHERE pl.test_id = 844
+	AND pl.test_done = 1
+	AND pl.test_result IN(1301,1302,1300,1304);
+	
+	INSERT INTO patient_pcr(patient_id,encounter_id,location_id,visit_date,pcr_result, test_date)
+	SELECT distinct vt.patient_id,vt.encounter_id, vt.location_id, 
+	vt.encounter_date,vt.test_result,vt.test_date
+	FROM isanteplus.virological_tests vt
+	WHERE vt.test_id = 162087
+	AND vt.answer_concept_id = 1030
+	AND vt.test_result IN (664,703,1138);
+	
+	
     SET FOREIGN_KEY_CHECKS=1;
     SET SQL_SAFE_UPDATES = 1;
     /*End of DML queries*/
