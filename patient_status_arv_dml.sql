@@ -71,6 +71,9 @@ DELIMITER $$
 		AND pp.rx_or_prophy = 163768;
 	
 	/*End insertion for exposed infants*/
+	/*Delete all patient with PCR positive from exposed_infants table*/
+	DELETE FROM exposed_infants WHERE 
+	patient_id IN (SELECT pcr.patient_id FROM patient_pcr pcr WHERE pcr.pcr_result IN(703,1301));
 	
 		/*Insertion for patient_status Décédés=1,Arrêtés=2,Transférés=3 on ARV
 		We use max(start_date) OR max(date_started) because

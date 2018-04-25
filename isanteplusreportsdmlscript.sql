@@ -645,6 +645,30 @@ SELECT DISTINCT v.patient_id,v.visit_id,
 	AND ob.value_coded=1434
 	on duplicate key update
 	encounter_id = ob.encounter_id;
+	/*Insertion in patient_pregnancy table where prenatale is checked in the OBGYN form*/
+	INSERT into patient_pregnancy(patient_id,encounter_id,start_date)
+					select distinct ob.person_id,ob.encounter_id,DATE(enc.encounter_datetime) AS start_date
+					from openmrs.obs ob, openmrs.encounter enc, 
+					openmrs.encounter_type ent
+					WHERE ob.encounter_id = enc.encounter_id
+					AND enc.encounter_type = ent.encounter_type_id
+                    AND ob.concept_id = 160288
+					AND ob.value_coded = 1622
+					AND ent.uuid IN("5c312603-25c1-4dbe-be18-1a167eb85f97","49592bec-dd22-4b6c-a97f-4dd2af6f2171")
+					on duplicate key update
+					start_date = start_date;
+	/*Insertion in patient_pregnancy table where DPA is filled*/
+	INSERT into patient_pregnancy(patient_id,encounter_id,start_date)
+					select distinct ob.person_id,ob.encounter_id,DATE(enc.encounter_datetime) AS start_date
+					from openmrs.obs ob, openmrs.encounter enc, 
+					openmrs.encounter_type ent
+					WHERE ob.encounter_id = enc.encounter_id
+					AND enc.encounter_type = ent.encounter_type_id
+                    AND ob.concept_id = 5596
+					AND ob.value_datetime <> ""
+					AND ent.uuid IN("5c312603-25c1-4dbe-be18-1a167eb85f97","49592bec-dd22-4b6c-a97f-4dd2af6f2171")
+					on duplicate key update
+					start_date = start_date;
 	/*Patient_pregnancy insertion for areas B-HCG(positif),Test de Grossesse(positif) */
 	INSERT INTO patient_pregnancy(patient_id,encounter_id,start_date)
 	SELECT ob.person_id,ob.encounter_id,DATE(ob.obs_datetime)
@@ -653,6 +677,18 @@ SELECT DISTINCT v.patient_id,v.visit_id,
 	AND ob.value_coded=703
 	on duplicate key update
 	encounter_id = ob.encounter_id;
+	/*Insertion in patient_pregnancy table where a form travail et accouchement is filled*/
+	INSERT into patient_pregnancy(patient_id,encounter_id,start_date, end_date)
+					select distinct ob.person_id,ob.encounter_id,(DATE(enc.encounter_datetime)- INTERVAL 9 MONTH) AS start_date,
+					DATE(enc.encounter_datetime) AS end_date
+					from openmrs.obs ob, openmrs.encounter enc, 
+					openmrs.encounter_type ent
+					WHERE ob.encounter_id = enc.encounter_id
+					AND enc.encounter_type = ent.encounter_type_id
+					AND ent.uuid = "d95b3540-a39f-4d1e-a301-8ee0e03d5eab"
+					on duplicate key update
+					start_date = start_date,
+					end_date = end_date;
 	/* Patient_pregnancy updated date_stop for area DPA: <obs conceptId="CIEL:5596"/>*/
 	UPDATE patient_pregnancy ppr,openmrs.obs ob
 	SET end_date=DATE(ob.value_datetime)
