@@ -11,6 +11,70 @@ DELIMITER $$
 		end if;
 	SET SQL_SAFE_UPDATES = 0;
 	SET FOREIGN_KEY_CHECKS = 0;
+	
+	/*Insertion for exposed infants*/
+		/*Le dernier PCR en date doit être négatif fiche Premiere visite VIH pediatrique 
+			condition_exposee = 1
+		*/
+		truncate table exposed_infants;
+		INSERT INTO exposed_infants(patient_id,location_id,encounter_id,visit_date,condition_exposee)
+	SELECT vt.patient_id,vt.location_id,vt.encounter_id,vt.encounter_date,1
+	FROM virological_tests vt,(SELECT vtest.patient_id,vtest.location_id,vtest.encounter_id,
+	MAX(vtest.encounter_date) as v_date, 1 FROM virological_tests vtest 
+	WHERE vtest.test_id = 162087 AND vtest.answer_concept_id = 1030 GROUP BY 1) B
+	WHERE vt.patient_id = B.patient_id
+	AND vt.encounter_date = B.v_date
+	AND vt.test_id = 162087
+	AND vt.answer_concept_id = 1030
+	AND vt.test_result = 664;
+		
+	/*	PCR_Concept_id=844,Positif=1301,Negatif=1302,Equivoque=1300,Echantillon de pauvre qualite=1304
+		Fiche laboratoire, condition_exposee = 2
+		*/
+	INSERT INTO exposed_infants(patient_id,location_id,encounter_id,visit_date,condition_exposee)
+	SELECT pl.patient_id,pl.location_id,pl.encounter_id,pl.visit_date,2
+	FROM patient_laboratory pl,(SELECT plab.patient_id,plab.location_id,
+	plab.encounter_id, MAX(plab.visit_date) as v_date,2 FROM patient_laboratory plab 
+	WHERE plab.test_id = 844 GROUP BY 1) B
+	WHERE pl.patient_id = B.patient_id
+	AND pl.visit_date = B.v_date
+	AND pl.test_id = 844
+	AND pl.test_done = 1
+	AND pl.test_result = 1302;
+	/*	Condition B - Enfant exposé doit être coché
+		Fiche Premiere visit VIH pediatrique
+		condition_exposee = 3
+	*/
+	INSERT INTO exposed_infants(patient_id,location_id,encounter_id,visit_date,condition_exposee)
+					select distinct ob.person_id,ob.location_id,ob.encounter_id,
+					DATE(enc.encounter_datetime),3
+					from openmrs.obs ob, openmrs.encounter enc, 
+					openmrs.encounter_type ent
+					WHERE ob.encounter_id	=	enc.encounter_id
+					AND enc.encounter_type	=	ent.encounter_type_id
+                    AND ob.concept_id = 1401
+					AND ob.value_coded = 1405
+					AND (ent.uuid =	"349ae0b4-65c1-4122-aa06-480f186c8350"
+						OR ent.uuid = "33491314-c352-42d0-bd5d-a9d0bffc9bf1");
+	
+	/* Condition D - Des ARV prescrits en prophylaxie
+		patient_prescription.rx_or_prophy=163768
+		Fiche Ordonance medicale, condition_exposee = 4
+		*/
+		INSERT INTO exposed_infants(patient_id,location_id,encounter_id,visit_date,condition_exposee)
+		select distinct pp.patient_id,pp.location_id,pp.encounter_id,pp.visit_date,4
+		from patient_prescription pp, arv_drugs arvd, (select ppres.patient_id, 
+							MAX(ppres.visit_date) as visit_date FROM patient_prescription ppres,
+							arv_drugs ad WHERE ppres.drug_id = ad.drug_id GROUP BY 1) B
+		WHERE pp.drug_id = arvd.drug_id
+		AND pp.visit_date = B.visit_date
+		AND pp.rx_or_prophy = 163768;
+	
+	/*End insertion for exposed infants*/
+	/*Delete all patient with PCR positive from exposed_infants table*/
+	DELETE FROM exposed_infants WHERE 
+	patient_id IN (SELECT pcr.patient_id FROM patient_pcr pcr WHERE pcr.pcr_result IN(703,1301));
+	
 		/*Insertion for patient_status Décédés=1,Arrêtés=2,Transférés=3 on ARV
 		We use max(start_date) OR max(date_started) because
 		we can't find the historic of the patient status
@@ -290,6 +354,10 @@ INSERT INTO patient_status_arv_temp_a
 	 AND psa.start_date = (SELECT MAX(psarv.start_date) 
 	                       FROM patient_status_arv psarv
 						   WHERE psarv.patient_id=p.patient_id);
+	/*Delete Exposed infants from patient_arv_status*/
+	DELETE FROM patient_status_arv WHERE 
+	patient_id IN (SELECT ei.patient_id FROM exposed_infants ei);
+	
 /*End of patient Status*/
 	SET SQL_SAFE_UPDATES = 1;
 	SET FOREIGN_KEY_CHECKS = 1;	
