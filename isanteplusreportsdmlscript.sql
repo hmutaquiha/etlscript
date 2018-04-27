@@ -621,6 +621,18 @@ SELECT DISTINCT v.patient_id,v.visit_id,
 	WHERE plab.test_id=ob.concept_id
 	AND plab.encounter_id=ob.encounter_id;
 
+	/*update order_destination for patient_laboratory*/
+	update patient_laboratory plab,openmrs.obs ob
+	SET plab.order_destination = ob.value_text
+	WHERE ob.concept_id = 160632
+	AND plab.encounter_id = ob.encounter_id;
+
+	/*update test_name for patient_laboratory*/
+	update patient_laboratory plab, openmrs.concept_name cn
+	SET plab.test_name=cn.name
+	WHERE plab.test_id = cn.concept_id
+	AND cn.locale="fr";
+
 /*End of patient_laboratory*/
 /*Starting insertion for patient_prenancy table*/
 /*Patient_pregnancy insertion*/
