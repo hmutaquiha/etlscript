@@ -240,6 +240,8 @@ CREATE TABLE IF NOT EXISTS patient_prescription (
 		test_result text,
 		date_test_done DATE,
 		comment_test_done text,
+		order_destination  varchar(50),
+    		test_name text,
 		CONSTRAINT pk_patient_laboratory PRIMARY KEY (patient_id,encounter_id,test_id),
 		INDEX(visit_date),
 		INDEX(encounter_id),
