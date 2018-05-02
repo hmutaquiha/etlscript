@@ -625,26 +625,26 @@ SELECT DISTINCT v.patient_id,v.visit_id,
 /*Starting insertion for patient_prenancy table*/
 /*Patient_pregnancy insertion*/
 	INSERT INTO patient_pregnancy (patient_id,encounter_id,start_date)
-	SELECT DISTINCT ob.person_id,ob.encounter_id,DATE(ob.obs_datetime)
+	SELECT DISTINCT ob.person_id,ob.encounter_id,DATE(ob.obs_datetime) AS start_date
 	FROM openmrs.obs ob, openmrs.obs ob1
 	WHERE ob.obs_group_id=ob1.obs_id
 	AND ob.concept_id=1284
 	AND ob.value_coded IN (46,129251,132678,47,163751,1449,118245,129211,141631)
 	AND ob1.concept_id=159947
 	on duplicate key update
-	encounter_id = ob.encounter_id;
+	start_date = start_date;
 	/*AND ob.person_id NOT IN
 	(SELECT ppr.patient_id FROM isanteplus.patient_pregnancy ppr
 	WHERE ppr.end_date is null 
 	AND ppr.end_date < DATE(ob.obs_datetime))*/
 	/*Patient_pregnancy insertion for area Femme enceinte (Grossesse)*/
 	INSERT INTO patient_pregnancy (patient_id,encounter_id,start_date)
-	SELECT ob.person_id,ob.encounter_id,DATE(ob.obs_datetime)
+	SELECT ob.person_id,ob.encounter_id,DATE(ob.obs_datetime) AS start_date
 	FROM openmrs.obs ob
 	WHERE ob.concept_id=162225
 	AND ob.value_coded=1434
 	on duplicate key update
-	encounter_id = ob.encounter_id;
+	start_date = start_date;
 	/*Insertion in patient_pregnancy table where prenatale is checked in the OBGYN form*/
 	INSERT into patient_pregnancy(patient_id,encounter_id,start_date)
 					select distinct ob.person_id,ob.encounter_id,DATE(enc.encounter_datetime) AS start_date
@@ -671,12 +671,12 @@ SELECT DISTINCT v.patient_id,v.visit_id,
 					start_date = start_date;
 	/*Patient_pregnancy insertion for areas B-HCG(positif),Test de Grossesse(positif) */
 	INSERT INTO patient_pregnancy(patient_id,encounter_id,start_date)
-	SELECT ob.person_id,ob.encounter_id,DATE(ob.obs_datetime)
+	SELECT ob.person_id,ob.encounter_id,DATE(ob.obs_datetime) AS start_date
 	FROM openmrs.obs ob
 	WHERE (ob.concept_id=1945 OR ob.concept_id=45)
 	AND ob.value_coded=703
 	on duplicate key update
-	encounter_id = ob.encounter_id;
+	start_date = start_date;
 	/*Insertion in patient_pregnancy table where a form travail et accouchement is filled*/
 	INSERT into patient_pregnancy(patient_id,encounter_id,start_date, end_date)
 					select distinct ob.person_id,ob.encounter_id,(DATE(enc.encounter_datetime)- INTERVAL 9 MONTH) AS start_date,
@@ -1279,6 +1279,16 @@ INSERT into virological_tests
 	AND vt.answer_concept_id = 1030
 	AND vt.test_result IN (664,703,1138);
 	
+	/*Update for date_started_arv area in patient table */
+	UPDATE patient p, patient_dispensing pdis, 
+	(SELECT pdi.patient_id, MIN(pdi.visit_date) as visit_date FROM patient_dispensing pdi GROUP BY 1) B
+	SET p.date_started_arv = pdis.visit_date
+	WHERE p.patient_id = pdis.patient_id
+	AND pdis.patient_id = B.patient_id
+	AND pdis.visit_date = B.visit_date
+	AND pdis.drug_id IN(SELECT darv.drug_id 
+	FROM isanteplus.arv_drugs darv);
+	
 	
     SET FOREIGN_KEY_CHECKS=1;
     SET SQL_SAFE_UPDATES = 1;
@@ -1289,7 +1299,7 @@ DELIMITER ;
 
     DROP EVENT if exists isanteplusreports_dml_event;
 	CREATE EVENT if not exists isanteplusreports_dml_event
-	ON SCHEDULE EVERY 5 HOUR
+	ON SCHEDULE EVERY 3 HOUR
 	 STARTS now()
 		DO
 		call isanteplusreports_dml();

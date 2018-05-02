@@ -26,6 +26,7 @@ CREATE TABLE if not exists `patient` (
   `death_date` date DEFAULT NULL,
   `cause_of_death` longtext,
   `last_visit_date` DATETIME,
+  `date_started_arv` DATETIME,
   `last_inserted_date` datetime DEFAULT NULL,
   `last_updated_date` datetime DEFAULT NULL,
   PRIMARY KEY (`patient_id`),
