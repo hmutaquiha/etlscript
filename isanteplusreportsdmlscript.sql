@@ -514,7 +514,7 @@ AND ob.concept_id=307;
 	TRUNCATE TABLE discontinuation_reason;
 INSERT INTO 
  discontinuation_reason(patient_id,visit_id,visit_date,reason,reason_name)
-SELECT DISTINCT v.patient_id,v.visit_id,
+SELECT v.patient_id,v.visit_id,
 			MAX(v.date_started),ob.value_coded,
 		CASE WHEN(ob.value_coded=5240) THEN 'Perdu de vue'
 		    WHEN (ob.value_coded=159492) THEN 'Transfert'
@@ -529,8 +529,36 @@ SELECT DISTINCT v.patient_id,v.visit_id,
 	AND enc.encounter_id=ob.encounter_id
 	AND etype.uuid='9d0113c6-f23a-4461-8428-7e9a7344f2ba'
 	AND ob.concept_id=161555
-	Group BY v.patient_id;
-
+	Group BY v.patient_id, ob.value_coded;
+	
+	/*INSERT for stopping_reason*/
+	
+	TRUNCATE TABLE stopping_reason;
+INSERT INTO 
+ stopping_reason(patient_id,visit_id,visit_date,reason,reason_name,other_reason)
+SELECT v.patient_id,v.visit_id,
+			MAX(v.date_started),ob.value_coded,
+		CASE WHEN(ob.value_coded=1754) THEN 'ARVs non-disponibles'
+		    WHEN (ob.value_coded=160415) THEN 'Patient a déménagé'
+			WHEN (ob.value_coded=115198) THEN 'Adhérence inadéquate'
+			WHEN (ob.value_coded=159737) THEN 'Préférence du patient'
+			WHEN (ob.value_coded=5622) THEN 'Autre raison, préciser'
+		END, ob.comments
+	FROM openmrs.visit v, openmrs.encounter enc,
+	openmrs.encounter_type etype,openmrs.obs ob
+	WHERE v.visit_id=enc.visit_id
+	AND enc.encounter_type=etype.encounter_type_id
+	AND enc.encounter_id=ob.encounter_id
+	AND etype.uuid='9d0113c6-f23a-4461-8428-7e9a7344f2ba'
+	AND ob.concept_id=1667
+	AND ob.value_coded IN(1754,160415,115198,159737,5622)
+	GROUP BY v.patient_id, ob.value_coded;
+/*Delete FROM discontinuation_reason WHERE visit_id NOT IN Adhérence inadéquate=115198 
+OR Préférence du patient=159737*/
+DELETE FROM discontinuation_reason
+	WHERE visit_id NOT IN(SELECT str.visit_id FROM stopping_reason str
+	WHERE str.reason = 115198 OR str.reason = 159737)
+	AND reason = 1667;
 /*Starting patient_prescription*/
 	/*Insert for patient_id,encounter_id, drug_id areas*/
   INSERT into patient_prescription
