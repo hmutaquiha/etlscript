@@ -197,6 +197,22 @@ Raison d'arrêt inconnue=1067
 	reason_name longtext,
 	CONSTRAINT pk_dreason PRIMARY KEY (patient_id,visit_id,reason)
 	);
+/*Create a table for raison arretés concept_id = 1667, 
+		answer_concept_id IN (1754,160415,115198,159737,5622)
+		That table allow us to delete from the table discontinuation_reason
+		WHERE the discontinuation_raison (arretés raison) not in Adhérence inadéquate=115198
+		AND Préférence du patient=159737
+		*/
+	DROP TABLE IF EXISTS stopping_reason;
+	create table if not exists stopping_reason(
+	patient_id int(11),
+	visit_id int(11),
+	visit_date date,
+	reason int(11),
+	reason_name longtext,
+	other_reason longtext,
+	CONSTRAINT pk_stop_reason PRIMARY KEY (patient_id,visit_id,reason)
+	);
 /*Table patient_status_ARV contains all patients and their status*/
 	DROP TABLE IF EXISTS patient_status_arv;
 	create table if not exists patient_status_arv(
