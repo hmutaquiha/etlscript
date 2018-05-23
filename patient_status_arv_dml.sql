@@ -75,15 +75,18 @@ DELIMITER $$
 	DELETE FROM exposed_infants WHERE 
 	patient_id IN (SELECT pcr.patient_id FROM patient_pcr pcr WHERE pcr.pcr_result IN(703,1301));
 	
+	DELETE FROM exposed_infants WHERE 
+	patient_id IN (SELECT pl.patient_id FROM patient_laboratory pl, patient p 
+	WHERE pl.patient_id = p.patient_id AND pl.test_id = 1040 
+	AND pl.test_done = 1 AND pl.test_result = 703 
+	AND (TIMESTAMPDIFF(MONTH, p.birthdate,DATE(now())) >= 18));
+	/*TRUNCATE TABLE patient_status_arv;*/
 		/*Insertion for patient_status Décédés=1,Arrêtés=2,Transférés=3 on ARV
 		We use max(start_date) OR max(date_started) because
 		we can't find the historic of the patient status
 	*/
 	/*Starting patient_status_arv*/
-	DROP TABLE if exists patient_status_arv_temp_a;
-	DROP TABLE if exists patient_status_arv_temp_b;
-	/*Creating temporary table patient_status_arv_temp_a*/
-	CREATE TEMPORARY TABLE patient_status_arv_temp_a
+	INSERT INTO patient_status_arv(patient_id,id_status,start_date)
 	SELECT v.patient_id,
 	CASE WHEN (ob.value_coded=159) THEN 1
 	WHEN (ob.value_coded=1667) THEN 2
@@ -96,14 +99,17 @@ DELIMITER $$
 	AND enc.encounter_id=ob.encounter_id
 	AND entype.uuid='9d0113c6-f23a-4461-8428-7e9a7344f2ba'
 	AND ob.concept_id=161555
+	AND ob.value_coded IN(159,1667,159492)
 	AND enc.patient_id IN (SELECT parv.patient_id 
 	FROM isanteplus.patient_on_arv parv)
-	GROUP BY v.patient_id;
+	GROUP BY v.patient_id
+	on duplicate key
+	update start_date = start_date;
 	
 /*====================================================*/
 /*Insertion for patient_status Décédés en Pré-ARV=4,
 Transférés en Pré-ARV=5*/
-INSERT INTO patient_status_arv_temp_a
+INSERT INTO patient_status_arv(patient_id,id_status,start_date)
 	SELECT v.patient_id,
 	CASE WHEN (ob.value_coded=159) THEN 4
 	WHEN (ob.value_coded=159492) THEN 5
@@ -118,12 +124,16 @@ INSERT INTO patient_status_arv_temp_a
 	AND entype.uuid='9d0113c6-f23a-4461-8428-7e9a7344f2ba'
 	AND ob.concept_id=161555
 	AND ispat.vih_status=1
-	AND enc.patient_id NOT IN (SELECT parv.patient_id 
+	AND enc.patient_id NOT IN(SELECT parv.patient_id 
 	FROM isanteplus.patient_on_arv parv)
 	AND ob.value_coded IN(159,159492)
-	GROUP BY v.patient_id;
+	GROUP BY v.patient_id
+	on duplicate key
+	update start_date = start_date;
 	/*Insertion for patient_status réguliers=6*/
-	INSERT INTO patient_status_arv_temp_a
+	DROP TABLE if exists patient_status_arv_temp_a;
+	/*Creating temporary table patient_status_arv_temp_a*/
+	CREATE TEMPORARY TABLE patient_status_arv_temp_a
 	SELECT v.patient_id as patient_id,6 as id_status,MAX(v.start_date) as start_date
 	FROM isanteplus.patient ipat,isanteplus.patient_visit v, isanteplus.patient_on_arv p,
 	(select pv.patient_id, MAX(pv.next_visit_date) as mnext_visit from isanteplus.patient_visit pv group by 1) mnv,
@@ -166,6 +176,16 @@ INSERT INTO patient_status_arv_temp_a
 							)
 	AND((DATE(now()) <= pdis.next_dispensation_date))
 	GROUP BY pdis.patient_id;
+	
+	create index patient_status_arv_index_a on patient_status_arv_temp_a (patient_id, id_status, start_date);
+	/*Adding status into patient_status_arv table */
+	INSERT INTO patient_status_arv(patient_id,id_status,start_date)
+    select distinct * from patient_status_arv_temp_a psat
+	on duplicate key
+	update start_date = psat.start_date;
+	
+	/*truncate the temporary table after the insertion */
+	truncate table patient_status_arv_temp_a;
 /*=========================================================*/
 	
 /*Insertion for patient_status Rendez-vous ratés=8*/
@@ -214,7 +234,17 @@ INSERT INTO patient_status_arv_temp_a
 							) 
 	AND (DATEDIFF(DATE(now()),pdis.next_dispensation_date)<=90)
 	AND((DATE(now()) > pdis.next_dispensation_date))
-	GROUP BY pdis.patient_id;	
+	GROUP BY pdis.patient_id;
+
+	/*Insertion for status on the table patient_arv_status Rendez-vous ratés=8*/
+	/*Adding status into patient_status_arv table */
+	INSERT INTO patient_status_arv(patient_id,id_status,start_date)
+    select distinct * from patient_status_arv_temp_a psat
+	on duplicate key
+	update start_date = psat.start_date;
+	/*truncate the temporary table after the insertion */
+	truncate table patient_status_arv_temp_a;
+	
 /*Insertion for patient_status Perdus de vue=9*/
 
 	INSERT INTO patient_status_arv_temp_a
@@ -258,9 +288,19 @@ INSERT INTO patient_status_arv_temp_a
 							'51df75f7-a3de-4f82-a9df-c0bedaf5a2dd'
 							)
 	GROUP BY pdis.patient_id;
+	
+	/*Insertion for status on the table patient_arv_status Perdus de vue=9*/
+	/*Adding status into patient_status_arv table */
+	INSERT INTO patient_status_arv(patient_id,id_status,start_date)
+    select distinct * from patient_status_arv_temp_a psat
+	on duplicate key
+	update start_date = psat.start_date;
+	/*truncate the temporary table after the insertion */
+	truncate table patient_status_arv_temp_a;
+	
 /*INSERTION for patient status,
      Perdus de vue en Pré-ARV=10 */
-INSERT INTO patient_status_arv_temp_a
+INSERT INTO patient_status_arv(patient_id,id_status,start_date)
 	SELECT v.patient_id,10,
 	MAX(DATE(v.date_started)) AS start_date
 	FROM isanteplus.patient ispat,
@@ -284,10 +324,12 @@ INSERT INTO patient_status_arv_temp_a
 		'f037e97b-471e-4898-a07c-b8e169e0ddc4'
 		)
 	AND (TIMESTAMPDIFF(MONTH, v.date_started,DATE(now())) > 12)
-	GROUP BY ispat.patient_id;
+	GROUP BY v.patient_id
+	on duplicate key
+	update start_date = start_date;
 	/*=========================================================*/
 	/*INSERTION for patient status Recent on PRE-ART=7,Actifs en Pré-ARV=11 */
-INSERT INTO patient_status_arv_temp_a
+INSERT INTO patient_status_arv(patient_id,id_status,start_date)
 	SELECT v.patient_id,
 	CASE WHEN 
 		(TIMESTAMPDIFF(MONTH,v.date_started,DATE(now()))<=12)
@@ -323,23 +365,11 @@ INSERT INTO patient_status_arv_temp_a
 		'f037e97b-471e-4898-a07c-b8e169e0ddc4'
 		)
 	AND (TIMESTAMPDIFF(MONTH,v.date_started,DATE(now()))<=12)
-	GROUP BY ispat.patient_id;
-	
-	/*Put all distinct status in the patient_status_arv_temp_b table  */
-	
-	create index patient_status_arv_index_a on patient_status_arv_temp_a (patient_id, id_status, start_date);
-	
-	CREATE TEMPORARY TABLE patient_status_arv_temp_b
-	select distinct * FROM patient_status_arv_temp_a;
-	
-	create index patient_status_arv_index_b on patient_status_arv_temp_b (patient_id, id_status, start_date);
-	
-	INSERT INTO patient_status_arv (patient_id,id_status,start_date)
-	select pst.patient_id,pst.id_status,pst.start_date FROM patient_status_arv_temp_b pst on duplicate key
-	update start_date = pst.start_date;
-	
+	GROUP BY v.patient_id
+	on duplicate key
+	update start_date = start_date;
+		
 	DROP TABLE patient_status_arv_temp_a;
-	DROP TABLE patient_status_arv_temp_b;
 	
 	/*===========================================================*/
 	/*UPDATE Discontinuations reason in table patient_status_ARV*/
@@ -347,6 +377,9 @@ INSERT INTO patient_status_arv_temp_a
 	       SET psarv.dis_reason=dreason.reason
 		   WHERE psarv.patient_id=dreason.patient_id
 		   AND psarv.start_date <= dreason.visit_date;	
+	/*Delete Exposed infants from patient_arv_status*/
+	DELETE FROM patient_status_arv WHERE 
+	patient_id IN (SELECT ei.patient_id FROM exposed_infants ei);
    /*Update patient table for having the last patient arv status*/	
    update patient p,patient_status_arv psa
      SET p.arv_status=psa.id_status
@@ -354,11 +387,7 @@ INSERT INTO patient_status_arv_temp_a
 	 AND psa.start_date = (SELECT MAX(psarv.start_date) 
 	                       FROM patient_status_arv psarv
 						   WHERE psarv.patient_id=p.patient_id);
-	/*Delete Exposed infants from patient_arv_status*/
-	DELETE FROM patient_status_arv WHERE 
-	patient_id IN (SELECT ei.patient_id FROM exposed_infants ei);
-	
-/*End of patient Status*/
+	/*End of patient Status*/
 	SET SQL_SAFE_UPDATES = 1;
 	SET FOREIGN_KEY_CHECKS = 1;	
 		

@@ -25,8 +25,10 @@ CREATE TABLE if not exists `patient` (
   `date_created` date DEFAULT NULL,
   `death_date` date DEFAULT NULL,
   `cause_of_death` longtext,
+  `first_visit_date` DATETIME,
   `last_visit_date` DATETIME,
   `date_started_arv` DATETIME,
+  `next_visit_date` DATE,
   `last_inserted_date` datetime DEFAULT NULL,
   `last_updated_date` datetime DEFAULT NULL,
   PRIMARY KEY (`patient_id`),
@@ -99,6 +101,7 @@ CREATE TABLE IF NOT EXISTS patient_dispensing (
 	dispensation_date date,
 	next_dispensation_date Date,
 	dispensation_location int(11) default 0,
+	arv_drug int(11) default 1066, /*1066=No, 1065=YES*/
 	CONSTRAINT pk_patient_dispensing PRIMARY KEY(encounter_id,location_id,drug_id),
     /*CONSTRAINT FOREIGN KEY (patient_id) REFERENCES isanteplus.patient(patient_id),*/
 	INDEX(visit_date),
