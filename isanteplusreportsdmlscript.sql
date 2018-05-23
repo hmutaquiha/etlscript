@@ -151,6 +151,13 @@ DELIMITER $$
 			WHERE p.patient_id=vi.patient_id
 			AND vi.date_started=(select MAX(v.date_started) 
 			FROM openmrs.visit v WHERE v.patient_id=p.patient_id);
+			
+			/*Update patient table for having first visit date */
+		   update patient p, openmrs.visit vi
+			SET p.first_visit_date = vi.date_started
+			WHERE p.patient_id=vi.patient_id
+			AND vi.date_started=(select MIN(v.date_started) 
+			FROM openmrs.visit v WHERE v.patient_id=p.patient_id);
 
         /* Insert data to health_qual_patient_visit table */
         INSERT INTO health_qual_patient_visit (visit_date, visit_id, encounter_id, location_id, patient_id, encounter_type, last_insert_date)
@@ -1329,6 +1336,29 @@ INSERT into virological_tests
 	AND pdis.drug_id IN(SELECT darv.drug_id 
 	FROM isanteplus.arv_drugs darv);
 	
+	/* Update on patient_dispensing where the drug is a ARV drug */
+	UPDATE patient_dispensing pdis
+		   SET pdis.arv_drug = 1065
+		   WHERE pdis.drug_id IN(SELECT DISTINCT ad.drug_id FROM arv_drugs ad);
+		   
+	/*Update next_visit_date on table patient, find the last next_visit_date for all patients*/
+	DROP TABLE IF EXISTS next_visit_date_table;
+	CREATE TEMPORARY TABLE next_visit_date_table
+	SELECT pdi.patient_id, MAX(pdi.next_dispensation_date) as next_visit_date 
+	FROM patient_dispensing pdi GROUP BY 1;
+	
+	INSERT INTO next_visit_date_table
+	SELECT pv.patient_id, MAX(pv.next_visit_date) as next_visit_date 
+	FROM patient_visit pv GROUP BY 1;
+	
+	 UPDATE patient p, 
+	 (SELECT patient_id, MAX(next_visit_date) as next_visit_date from next_visit_date_table GROUP BY 1) B
+	SET p.next_visit_date = B.next_visit_date
+	WHERE p.patient_id = B.patient_id;
+	
+	DROP TABLE next_visit_date_table;
+	
+
 	
     SET FOREIGN_KEY_CHECKS=1;
     SET SQL_SAFE_UPDATES = 1;
