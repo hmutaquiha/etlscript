@@ -28,6 +28,7 @@ DELIMITER $$
 						   now() as last_inserted_date 
 					from openmrs.person_name pn, openmrs.person pe, openmrs.patient pa 
 					where pe.person_id=pn.person_id AND pe.person_id=pa.patient_id
+					AND pn.voided = 0
 					on duplicate key update 
 						given_name=pn.given_name,
 						family_name=pn.family_name,
@@ -42,19 +43,22 @@ DELIMITER $$
 			openmrs.patient_identifier_type pit set p.st_id=pi.identifier 
 			where p.patient_id=pi.patient_id 
 			AND pi.identifier_type=pit.patient_identifier_type_id
-			and pit.uuid="d059f6d0-9e42-4760-8de1-8316b48bc5f1";
+			and pit.uuid="d059f6d0-9e42-4760-8de1-8316b48bc5f1"
+			AND pi.voided = 0;
             /*National ID*/
 			update patient p,openmrs.patient_identifier pi, 
 			openmrs.patient_identifier_type pit set p.national_id=pi.identifier 
 			where p.patient_id=pi.patient_id 
 			AND pi.identifier_type=pit.patient_identifier_type_id
-			and pit.uuid="9fb4533d-4fd5-4276-875b-2ab41597f5dd";
+			and pit.uuid="9fb4533d-4fd5-4276-875b-2ab41597f5dd"
+			AND pi.voided = 0;
 			/*iSantePlus_ID*/
 			update patient p,openmrs.patient_identifier pi, 
 			openmrs.patient_identifier_type pit set p.identifier=pi.identifier 
 			where p.patient_id=pi.patient_id 
 			AND pi.identifier_type=pit.patient_identifier_type_id
-			and pit.uuid="05a29f94-c0ed-11e2-94be-8c13b969e334";
+			and pit.uuid="05a29f94-c0ed-11e2-94be-8c13b969e334"
+			AND pi.voided = 0;
 
 			/* update location_id for patients*/
 				update patient p,
@@ -74,7 +78,8 @@ DELIMITER $$
 			ELSE
               padd.address2
             END
-			WHERE p.patient_id = padd.person_id;
+			WHERE p.patient_id = padd.person_id
+			AND padd.voided = 0;
 			/* update patient with person attribute */
 			
 			update patient pat,(
@@ -109,7 +114,8 @@ DELIMITER $$
 				WHERE p.patient_id = ob.person_id 
 				AND ob.person_id = o.person_id
 				AND o.concept_id = 1054
-				AND o.obs_datetime = ob.obsDt;
+				AND o.obs_datetime = ob.obsDt
+				AND o.voided = 0;
 		
 			/*Update for Occupation */
 				update patient p,openmrs.obs o, (
@@ -118,7 +124,8 @@ DELIMITER $$
 				WHERE p.patient_id = ob.person_id 
 				AND ob.person_id = o.person_id
 				AND o.concept_id = 1542
-				AND o.obs_datetime = ob.obsDt;
+				AND o.obs_datetime = ob.obsDt
+				AND o.voided = 0;
 			
 			/* update patient with vih status */
 			
@@ -128,7 +135,8 @@ DELIMITER $$
 			AND (ent.uuid='17536ba6-dd7c-4f58-8014-08c7cb798ac7'
 			 OR ent.uuid='204ad066-c5c2-4229-9a62-644bc5617ca2'
 			 OR ent.uuid='349ae0b4-65c1-4122-aa06-480f186c8350'
-			 OR ent.uuid='33491314-c352-42d0-bd5d-a9d0bffc9bf1');
+			 OR ent.uuid='33491314-c352-42d0-bd5d-a9d0bffc9bf1')
+			AND en.voided = 0;
 
 			/* update patient with death information */
 
@@ -149,6 +157,7 @@ DELIMITER $$
 			where v.visit_id=e.visit_id and v.patient_id=e.patient_id
 				  and o.person_id=e.patient_id and o.encounter_id=e.encounter_id
 				and o.concept_id='5096'
+				AND o.voided = 0
 				on duplicate key update 
 				next_visit_date = o.value_datetime;
 				
@@ -158,7 +167,8 @@ DELIMITER $$
 			SET p.last_visit_date = vi.date_started
 			WHERE p.patient_id = vi.patient_id
 			AND vi.patient_id = B.patient_id
-			AND vi.date_started = B.date_started;
+			AND vi.date_started = B.date_started
+			AND vi.voided = 0;
 			
 			/*Update patient table for having first visit date */
 		   update patient p, openmrs.visit vi, (select v.patient_id, MIN(v.date_started) as date_started 
@@ -166,7 +176,8 @@ DELIMITER $$
 			SET p.first_visit_date = vi.date_started
 			WHERE p.patient_id=vi.patient_id
 			AND vi.patient_id = B.patient_id
-			AND vi.date_started = B.date_started;
+			AND vi.date_started = B.date_started
+			AND vi.voided = 0;
 
         /* Insert data to health_qual_patient_visit table */
         INSERT INTO health_qual_patient_visit (visit_date, visit_id, encounter_id, location_id, patient_id, encounter_type, last_insert_date)
@@ -176,6 +187,7 @@ DELIMITER $$
             AND v.patient_id = e.patient_id
             AND o.person_id = e.patient_id
             AND o.encounter_id = e.encounter_id
+			AND o.voided = 0
 			on duplicate key update
 			encounter_id = e.encounter_id;
 
@@ -190,6 +202,7 @@ DELIMITER $$
               AND e.encounter_id= o.encounter_id
               AND e.encounter_id = pv.encounter_id
               AND o.concept_id = 5090
+			  AND o.voided = 0
             ) AS hs
           JOIN (
             SELECT pv.visit_id, o.value_numeric as 'weight'
@@ -199,6 +212,7 @@ DELIMITER $$
               AND e.encounter_id= o.encounter_id
               AND e.encounter_id = pv.encounter_id
               AND o.concept_id = 5089
+			  AND o.voided = 0
             ) AS ws
           ON hs.visit_id = ws.visit_id
           ) as bmi
@@ -213,7 +227,8 @@ DELIMITER $$
               AND pv.visit_id = e.visit_id
               AND e.encounter_id= o.encounter_id
               AND e.encounter_id = pv.encounter_id
-              AND o.concept_id=374) AS family_planning
+              AND o.concept_id=374
+			  AND o.voided = 0) AS family_planning
           SET pv.family_planning_method_used = true
           WHERE family_planning.visit_id = pv.visit_id
             AND value_coded IS NOT NULL;
@@ -225,7 +240,8 @@ DELIMITER $$
             WHERE o.person_id = pv.patient_id
               AND pv.visit_id = e.visit_id
               AND e.encounter_id= o.encounter_id
-              AND o.concept_id=163710) AS adherence
+              AND o.concept_id=163710
+			  AND o.voided = 0) AS adherence
           SET pv.adherence_evaluation = adherence.value_numeric
           WHERE adherence.visit_id = pv.visit_id
             AND value_numeric IS NOT NULL;
@@ -240,7 +256,8 @@ DELIMITER $$
               AND e.encounter_id = pv.encounter_id
               AND (
                 o.concept_id IN (160265, 1659, 1110, 163283, 162320, 163284, 1633, 1389, 163951, 159431, 1113, 159798, 159398)
-              )) AS evaluation_of_tb
+              )
+			  AND o.voided = 0) AS evaluation_of_tb
           SET pv.evaluated_of_tb = true
           WHERE evaluation_of_tb.visit_id = pv.visit_id
             AND value_coded IS NOT NULL;
@@ -275,6 +292,7 @@ DELIMITER $$
 					  OR o.concept_id = 5314
 					  OR o.concept_id = 1343
 				)
+			 AND o.voided = 0
             ) AS visits
           SET hqpv.nutritional_assessment_completed = true
           WHERE
@@ -286,7 +304,8 @@ DELIMITER $$
 			openmrs.obs o, openmrs.encounter e 
 			WHERE o.person_id = pv.patient_id AND pv.visit_id = e.visit_id 
 			AND e.encounter_id= o.encounter_id AND e.encounter_id = pv.encounter_id AND 
-			((o.concept_id=160592 AND o.value_coded=113489) OR (o.concept_id=160749 AND o.value_coded=1065))) v
+			((o.concept_id=160592 AND o.value_coded=113489) OR (o.concept_id=160749 AND o.value_coded=1065))
+			AND o.voided = 0) v
 			SET hqpv.is_active_tb = true
 			WHERE v.encounter_id = hqpv.encounter_id;
 		
@@ -315,6 +334,7 @@ insert into patient_tb_diagnosis
 					AND (ob.concept_id=1284 AND ob.value_coded=112141
 						OR
 						ob.concept_id=1284 AND ob.value_coded=159345)
+					AND ob.voided = 0
 						on duplicate key update
 						encounter_id = ob.encounter_id;
 /*Insert when Nouveau diagnostic Or suivi in the tuberculose menu are checked*/						
@@ -328,6 +348,7 @@ insert into patient_tb_diagnosis
 			FROM openmrs.obs ob
 			where ob.concept_id=1659
 			AND (ob.value_coded=160567 OR ob.value_coded=1662)
+			AND ob.voided = 0
 			on duplicate key update
 			encounter_id = ob.encounter_id;
 /*Insert when the area Toux >= 2 semaines is checked*/			
@@ -341,6 +362,7 @@ insert into patient_tb_diagnosis
 			FROM openmrs.obs ob
 			where ob.concept_id=159614
 			AND ob.value_coded=159799
+			AND ob.voided = 0
 			on duplicate key update
 			encounter_id = ob.encounter_id;
 /*Insert when one of the status tb is checked on the resultat du traitement(tb) menu*/			
@@ -356,51 +378,60 @@ insert into patient_tb_diagnosis
 			AND (ob.value_coded=159791 OR ob.value_coded=160035
 				OR ob.value_coded=159874 OR ob.value_coded=160031
 				OR ob.value_coded=160034)
+			AND ob.voided = 0
 			on duplicate key update
 			encounter_id = ob.encounter_id;
 /*update for visit_id AND visit_date*/ 
 update patient_tb_diagnosis pat, openmrs.visit vi, openmrs.encounter en
    set pat.visit_id=vi.visit_id, pat.visit_date=vi.date_started
 	where pat.encounter_id=en.encounter_id
-	AND en.visit_id=vi.visit_id;
+	AND en.visit_id=vi.visit_id
+	AND vi.voided = 0;
 /*update provider ???*/
 update patient_tb_diagnosis pat, openmrs.encounter_provider enp
 	set pat.provider_id=enp.provider_id
-	WHERE pat.encounter_id=enp.encounter_id;
+	WHERE pat.encounter_id=enp.encounter_id
+	AND enp.voided = 0;
 /*Update tb_diag and mdr_tb_diag*/
 update patient_tb_diagnosis pat, openmrs.obs ob,openmrs.obs ob1
 	set pat.tb_diag=1
 	where ob.obs_group_id=ob1.obs_id
     AND ob1.concept_id=159947	
 	AND (ob.concept_id=1284 AND ob.value_coded=112141)
-	AND pat.encounter_id=ob.encounter_id;
+	AND pat.encounter_id=ob.encounter_id
+	AND ob.voided = 0;
 					
 	update patient_tb_diagnosis pat, openmrs.obs ob,openmrs.obs ob1
 	set pat.mdr_tb_diag=1
 	where ob.obs_group_id=ob1.obs_id
     AND ob1.concept_id=159947	
 	AND (ob.concept_id=1284 AND ob.value_coded=159345)
-	AND pat.encounter_id=ob.encounter_id;
+	AND pat.encounter_id=ob.encounter_id
+	AND ob.voided = 0;
 /*update tb_new_diag AND tb_follow_up_diag*/
 	update patient_tb_diagnosis pat, openmrs.obs ob
 	SET pat.tb_new_diag=1
 	WHERE pat.encounter_id=ob.encounter_id
-	AND (ob.concept_id=1659 AND ob.value_coded=160567);
+	AND (ob.concept_id=1659 AND ob.value_coded=160567)
+	AND ob.voided = 0;
 	
 	update patient_tb_diagnosis pat, openmrs.obs ob
 	SET pat.tb_follow_up_diag=1
 	WHERE pat.encounter_id=ob.encounter_id
-	AND (ob.concept_id=1659 AND ob.value_coded=1662);
+	AND (ob.concept_id=1659 AND ob.value_coded=1662)
+	AND ob.voided = 0;
 /*update cough_for_2wks_or_more*/
 	update patient_tb_diagnosis pat, openmrs.obs ob
 	SET pat.cough_for_2wks_or_more=1
 	WHERE pat.encounter_id=ob.encounter_id
-	AND (ob.concept_id=159614 AND ob.value_coded=159799);
+	AND (ob.concept_id=159614 AND ob.value_coded=159799)
+	AND ob.voided = 0;
 /*update tb_treatment_start_date*/
 	update patient_tb_diagnosis pat, openmrs.obs ob
 	SET pat.tb_treatment_start_date=ob.value_datetime
 	WHERE pat.encounter_id=ob.encounter_id
-	AND ob.concept_id=1113;
+	AND ob.concept_id=1113
+	AND ob.voided = 0;
 /*update for status_tb_treatment*/
 /*
 	statuts_tb_treatment = Gueri(1),traitement termine(2),
@@ -418,12 +449,14 @@ update patient_tb_diagnosis pat, openmrs.obs ob
 	when ob.value_coded=160034 then 5
 	END
 	WHERE pat.encounter_id=ob.encounter_id
-	AND ob.concept_id=159786;
+	AND ob.concept_id=159786
+	AND ob.voided = 0;
 /*update tb_treatment_stop_date*/
    update patient_tb_diagnosis pat, openmrs.obs ob
 	SET pat.tb_treatment_stop_date=ob.value_datetime
 	WHERE pat.encounter_id=ob.encounter_id
-	AND ob.concept_id=159431;
+	AND ob.concept_id=159431
+	AND ob.voided = 0;
 /*Insert for patient_id,encounter_id, drug_id areas*/
   INSERT into patient_dispensing
 					(
@@ -443,13 +476,15 @@ update patient_tb_diagnosis pat, openmrs.obs ob
                     AND ob1.concept_id=163711	
 					AND ob.concept_id=1282
 					AND ob2.concept_id=1276
+					AND ob.voided = 0
 					ON DUPLICATE KEY UPDATE
 					dispensation_date = ob2.obs_datetime;
 
 	/*update provider for patient_dispensing???*/
 	update patient_dispensing padisp, openmrs.encounter_provider enp
 	set padisp.provider_id=enp.provider_id
-	WHERE padisp.encounter_id=enp.encounter_id;
+	WHERE padisp.encounter_id=enp.encounter_id
+	AND enp.voided = 0;
 	/*Update dose_day, pill_amount for patient_dispensing*/
 	update isanteplus.patient_dispensing patdisp, openmrs.obs ob, openmrs.obs ob1
 	SET patdisp.dose_day=ob.value_numeric
@@ -457,7 +492,8 @@ update patient_tb_diagnosis pat, openmrs.obs ob
 	AND ob.encounter_id=ob1.encounter_id
 	AND ob.obs_group_id=ob1.obs_id
     AND ob1.concept_id=163711
-	AND ob.concept_id=159368;
+	AND ob.concept_id=159368
+	AND ob.voided = 0;
 	/*Update pill_amount for patient_dispensing*/
 	update isanteplus.patient_dispensing patdisp, openmrs.obs ob, openmrs.obs ob1
 	SET patdisp.pills_amount=ob.value_numeric
@@ -465,12 +501,14 @@ update patient_tb_diagnosis pat, openmrs.obs ob
 	AND ob.encounter_id=ob1.encounter_id
 	AND ob.obs_group_id=ob1.obs_id
     AND ob1.concept_id=163711
-	AND ob.concept_id=1443;
+	AND ob.concept_id=1443
+	AND ob.voided = 0;
 	/*update next_dispensation_date for table patient_dispensing*/	
 	update patient_dispensing patdisp, openmrs.obs ob 
 	set patdisp.next_dispensation_date=ob.value_datetime
 	WHERE patdisp.encounter_id=ob.encounter_id
-	AND ob.concept_id=162549;
+	AND ob.concept_id=162549
+	AND ob.voided = 0;
    /*update visit_id, visit_date for table patient_dispensing*/
 	update patient_dispensing patdisp, openmrs.visit vi, openmrs.encounter en
    set patdisp.visit_id=vi.visit_id, patdisp.visit_date=vi.date_started
@@ -481,7 +519,8 @@ update patient_tb_diagnosis pat, openmrs.obs ob
 	set patdisp.dispensation_location=1755
 	WHERE patdisp.encounter_id=ob.encounter_id
 	AND ob.concept_id=1755
-	AND ob.value_coded=1065;	
+	AND ob.value_coded=1065
+	AND ob.voided = 0;	
 		/*Insertion for patient_id, visit_id,encounter_id,visit_date for table patient_imagerie */
 insert into patient_imagerie (patient_id,location_id,visit_id,encounter_id,visit_date)
 	select distinct ob.person_id,ob.location_id,vi.visit_id, ob.encounter_id,vi.date_started
@@ -498,17 +537,20 @@ insert into patient_imagerie (patient_id,location_id,visit_id,encounter_id,visit
 update isanteplus.patient_imagerie patim, openmrs.obs ob
 set patim.radiographie_pul=ob.value_coded
 WHERE patim.encounter_id=ob.encounter_id
-AND ob.concept_id=12;
+AND ob.concept_id=12
+AND ob.voided = 0;
 /*update radiographie_autre of table patient_imagerie*/
 update isanteplus.patient_imagerie patim, openmrs.obs ob
 set patim.radiographie_autre=ob.value_coded
 WHERE patim.encounter_id=ob.encounter_id
-AND ob.concept_id=309;
+AND ob.concept_id=309
+AND ob.voided = 0;
 /*update crachat_barr of table patient_imagerie*/
 update isanteplus.patient_imagerie patim, openmrs.obs ob
 set patim.crachat_barr=ob.value_coded
 WHERE patim.encounter_id=ob.encounter_id
-AND ob.concept_id=307;
+AND ob.concept_id=307
+AND ob.voided = 0;
 
 /*Part of patient Status*/
 
@@ -548,6 +590,7 @@ SELECT v.patient_id,v.visit_id,
 	AND enc.encounter_id=ob.encounter_id
 	AND etype.uuid='9d0113c6-f23a-4461-8428-7e9a7344f2ba'
 	AND ob.concept_id=161555
+	AND ob.voided = 0
 	Group BY v.patient_id, ob.value_coded;
 	
 	/*INSERT for stopping_reason*/
@@ -571,6 +614,7 @@ SELECT v.patient_id,v.visit_id,
 	AND etype.uuid='9d0113c6-f23a-4461-8428-7e9a7344f2ba'
 	AND ob.concept_id=1667
 	AND ob.value_coded IN(1754,160415,115198,159737,5622)
+	AND ob.voided = 0
 	GROUP BY v.patient_id, ob.value_coded;
 /*Delete FROM discontinuation_reason WHERE visit_id NOT IN Adhérence inadéquate=115198 
 OR Préférence du patient=159737*/
@@ -644,18 +688,21 @@ DELETE FROM discontinuation_reason
 					where ob.encounter_id=enc.encounter_id
 					AND enc.encounter_type=entype.encounter_type_id
                     AND ob.concept_id=1271
+					AND ob.voided = 0
 					AND entype.uuid='f037e97b-471e-4898-a07c-b8e169e0ddc4'
 					on duplicate key update
 					encounter_id = ob.encounter_id;	
     /*update provider for patient_laboratory*/
 	update patient_laboratory lab, openmrs.encounter_provider enp
 	set lab.provider_id=enp.provider_id
-	WHERE lab.encounter_id=enp.encounter_id;
+	WHERE lab.encounter_id=enp.encounter_id
+	AND enp.voided = 0;
 	/*update visit_id, visit_date for table patient_laboratory*/
 	update patient_laboratory lab, openmrs.visit vi, openmrs.encounter en
     set lab.visit_id=vi.visit_id, lab.visit_date=vi.date_started
 	where lab.encounter_id=en.encounter_id
-	AND en.visit_id=vi.visit_id;
+	AND en.visit_id=vi.visit_id
+	AND vi.voided = 0;
 	/*update test_done,date_test_done,comment_test_done for patient_laboratory*/
 	update patient_laboratory plab,openmrs.obs ob
 	SET plab.test_done=1,plab.test_result=CASE WHEN ob.value_coded<>''
@@ -666,19 +713,22 @@ DELETE FROM discontinuation_reason
 	plab.date_test_done=ob.obs_datetime,
 	plab.comment_test_done=ob.comments
 	WHERE plab.test_id=ob.concept_id
-	AND plab.encounter_id=ob.encounter_id;
+	AND plab.encounter_id=ob.encounter_id
+	AND ob.voided = 0;
 
 	/*update order_destination for patient_laboratory*/
 	update patient_laboratory plab,openmrs.obs ob
 	SET plab.order_destination = ob.value_text
 	WHERE ob.concept_id = 160632
-	AND plab.encounter_id = ob.encounter_id;
+	AND plab.encounter_id = ob.encounter_id
+	AND ob.voided = 0;
 
 	/*update test_name for patient_laboratory*/
 	update patient_laboratory plab, openmrs.concept_name cn
 	SET plab.test_name=cn.name
 	WHERE plab.test_id = cn.concept_id
-	AND cn.locale="fr";
+	AND cn.locale="fr"
+	AND cn.voided = 0;
 
 /*End of patient_laboratory*/
 /*Starting insertion for patient_prenancy table*/
@@ -690,6 +740,7 @@ DELETE FROM discontinuation_reason
 	AND ob.concept_id=1284
 	AND ob.value_coded IN (46,129251,132678,47,163751,1449,118245,129211,141631)
 	AND ob1.concept_id=159947
+	AND ob.voided = 0
 	on duplicate key update
 	start_date = start_date;
 	/*AND ob.person_id NOT IN
@@ -702,6 +753,7 @@ DELETE FROM discontinuation_reason
 	FROM openmrs.obs ob
 	WHERE ob.concept_id=162225
 	AND ob.value_coded=1434
+	AND ob.voided = 0
 	on duplicate key update
 	start_date = start_date;
 	/*Insertion in patient_pregnancy table where prenatale is checked in the OBGYN form*/
@@ -714,6 +766,7 @@ DELETE FROM discontinuation_reason
                     AND ob.concept_id = 160288
 					AND ob.value_coded = 1622
 					AND ent.uuid IN("5c312603-25c1-4dbe-be18-1a167eb85f97","49592bec-dd22-4b6c-a97f-4dd2af6f2171")
+					AND ob.voided = 0
 					on duplicate key update
 					start_date = start_date;
 	/*Insertion in patient_pregnancy table where DPA is filled*/
@@ -726,6 +779,7 @@ DELETE FROM discontinuation_reason
                     AND ob.concept_id = 5596
 					AND ob.value_datetime <> ""
 					AND ent.uuid IN("5c312603-25c1-4dbe-be18-1a167eb85f97","49592bec-dd22-4b6c-a97f-4dd2af6f2171")
+					AND ob.voided = 0
 					on duplicate key update
 					start_date = start_date;
 	/*Patient_pregnancy insertion for areas B-HCG(positif),Test de Grossesse(positif) */
@@ -734,6 +788,7 @@ DELETE FROM discontinuation_reason
 	FROM openmrs.obs ob
 	WHERE (ob.concept_id=1945 OR ob.concept_id=45)
 	AND ob.value_coded=703
+	AND ob.voided = 0
 	on duplicate key update
 	start_date = start_date;
 	/*Insertion in patient_pregnancy table where a form travail et accouchement is filled*/
@@ -745,6 +800,7 @@ DELETE FROM discontinuation_reason
 					WHERE ob.encounter_id = enc.encounter_id
 					AND enc.encounter_type = ent.encounter_type_id
 					AND ent.uuid = "d95b3540-a39f-4d1e-a301-8ee0e03d5eab"
+					AND ob.voided = 0
 					on duplicate key update
 					start_date = start_date,
 					end_date = end_date;
@@ -753,6 +809,7 @@ DELETE FROM discontinuation_reason
 	SET end_date=DATE(ob.value_datetime)
 	WHERE ppr.patient_id=ob.person_id
 	AND ob.concept_id=5596
+	AND ob.voided = 0
 	AND ppr.start_date < DATE(ob.value_datetime)
 	AND ppr.end_date is null;
 	/*Patient_pregnancy updated end_date for La date d’une fiche de travail et d’accouchement > a la date de début*/
@@ -763,6 +820,7 @@ DELETE FROM discontinuation_reason
 	AND ppr.start_date < DATE(enc.encounter_datetime)
 	AND ppr.end_date is null
 	AND enc.encounter_type=etype.encounter_type_id
+	AND enc.voided = 0
 	AND etype.uuid='d95b3540-a39f-4d1e-a301-8ee0e03d5eab';
 	/*Patient_pregnancy updated for DDR – 3 mois + 7 jours=1427 */
 	UPDATE patient_pregnancy ppr,openmrs.obs ob, openmrs.encounter enc
@@ -770,6 +828,7 @@ DELETE FROM discontinuation_reason
 	WHERE ppr.patient_id=ob.person_id
 	AND ob.person_id=enc.patient_id
 	AND ob.concept_id=1427
+	AND ob.voided = 0
 	AND ppr.start_date <= DATE(enc.encounter_datetime) 
 	AND ppr.end_date is null;
 	/*update patient_pregnancy (Add 9 Months on the start_date 
@@ -848,6 +907,7 @@ INSERT into patient_diagnosis
 					AND ob.obs_group_id=ob1.obs_id
                     AND ob1.concept_id=159947	
 					AND ob.concept_id=1284
+					AND ob.voided = 0
 					on duplicate key update
 					encounter_id = ob.encounter_id;
 	/*update patient diagnosis for suspected_confirmed area*/					
@@ -857,6 +917,7 @@ INSERT into patient_diagnosis
 	 WHERE ob.obs_group_id=ob1.obs_id
            AND ob1.concept_id=159947	
 		   AND ob.concept_id=159394
+		   AND ob.voided = 0
 		   AND pdiag.obs_group_id=ob.obs_group_id
 		   and pdiag.encounter_id=ob.encounter_id;
 	/*update patient diagnosis for primary_secondary area*/
@@ -867,12 +928,14 @@ INSERT into patient_diagnosis
            AND ob1.concept_id=159947	
 		   AND ob.concept_id=159946
 		   AND pdiag.obs_group_id=ob.obs_group_id
-		   and pdiag.encounter_id=ob.encounter_id;
+		   and pdiag.encounter_id=ob.encounter_id
+		   AND ob.voided = 0;
 	/*Update encounter date for patient_diagnosis*/	   
 	update patient_diagnosis pdiag, openmrs.encounter enc
     SET pdiag.encounter_date=DATE(enc.encounter_datetime)
     WHERE pdiag.location_id=enc.location_id
-          AND pdiag.encounter_id=enc.encounter_id;
+          AND pdiag.encounter_id=enc.encounter_id
+		  AND enc.voided = 0;
 /*Ending patient_diagnosis*/
 /*Part of visit_type*/
 	/*Insertion for the type of the visit_type
@@ -886,6 +949,7 @@ SELECT ob.person_id, ob.encounter_id,ob.location_id, enc.visit_id,
  WHERE ob.encounter_id=enc.encounter_id
  AND ob.concept_id=160288
  AND ob.value_coded IN (160456,1622,1623,5483)
+ AND ob.voided = 0
  on duplicate key update
  encounter_id = ob.encounter_id;
 /*End part of visit_type*/
@@ -908,6 +972,7 @@ SELECT ob.person_id, ob.encounter_id,ob.location_id, enc.visit_id,
                     AND ob.concept_id=1572
 					AND ob.value_coded IN(163266,1501,1502,5622)
 					AND ent.uuid="d95b3540-a39f-4d1e-a301-8ee0e03d5eab"
+					AND ob.voided = 0
 					on duplicate key update
 					delivery_location = ob.value_coded;
 
@@ -915,7 +980,8 @@ SELECT ob.person_id, ob.encounter_id,ob.location_id, enc.visit_id,
 	 SET pdel.delivery_date=ob.value_datetime
 	 WHERE ob.concept_id=5599
 		   and pdel.encounter_id=ob.encounter_id
-		   AND pdel.location_id=ob.location_id;
+		   AND pdel.location_id=ob.location_id
+		   AND ob.voided = 0;
 
 /*END of Insertion for table patient_delivery*/
 /*Part of virological_tests table*/
@@ -939,6 +1005,7 @@ INSERT into virological_tests
                     AND ob1.concept_id=1361	
 					AND ob.concept_id=162087
 					AND ob.value_coded=1030
+					AND ob.voided = 0
 					on duplicate key update
 					encounter_id = ob.encounter_id;
 	
@@ -948,26 +1015,30 @@ INSERT into virological_tests
 	 WHERE ob.concept_id=1030
 		   AND vtests.obs_group_id=ob.obs_group_id
 		   and vtests.encounter_id=ob.encounter_id
-		   AND vtests.location_id=ob.location_id;
+		   AND vtests.location_id=ob.location_id
+		   AND ob.voided = 0;
 	/*Update for area age for PCR*/
 	update virological_tests vtests, openmrs.obs ob
 	 SET vtests.age=ob.value_numeric
 	 WHERE ob.concept_id=163540
 		   AND vtests.obs_group_id=ob.obs_group_id
 		   and vtests.encounter_id=ob.encounter_id
-		   AND vtests.location_id=ob.location_id;
+		   AND vtests.location_id=ob.location_id
+		   AND ob.voided = 0;
 	/*Update for age_unit for PCR*/
 	update virological_tests vtests, openmrs.obs ob
 	 SET vtests.age_unit=ob.value_coded
 	 WHERE ob.concept_id=163541
 		   AND vtests.obs_group_id=ob.obs_group_id
 		   and vtests.encounter_id=ob.encounter_id
-		   AND vtests.location_id=ob.location_id;
+		   AND vtests.location_id=ob.location_id
+		   AND ob.voided = 0;
 	/*Update encounter date for virological_tests*/	   
 	update virological_tests vtests, openmrs.encounter enc
     SET vtests.encounter_date=DATE(enc.encounter_datetime)
     WHERE vtests.location_id=enc.location_id
-          AND vtests.encounter_id=enc.encounter_id;
+          AND vtests.encounter_id=enc.encounter_id
+		  AND enc.voided = 0;
 	/*Update to fill test_date area*/
 	update virological_tests vtests, patient p 
 	SET vtests.test_date =
@@ -1000,6 +1071,7 @@ INSERT into virological_tests
                     AND ob.concept_id IN(163776,5665,1401)
 					AND (ent.uuid="349ae0b4-65c1-4122-aa06-480f186c8350"
 						OR ent.uuid="33491314-c352-42d0-bd5d-a9d0bffc9bf1")
+						AND ob.voided = 0
 						on duplicate key update
 						encounter_id = ob.encounter_id;
 /*update for ptme*/
@@ -1007,19 +1079,22 @@ INSERT into virological_tests
 	 SET pv.ptme=ob.value_coded
 	 WHERE ob.concept_id=163776
 		   and pv.encounter_id=ob.encounter_id
-		   AND pv.location_id=ob.location_id;
+		   AND pv.location_id=ob.location_id
+		   AND ob.voided = 0;
 	/*update for prophylaxie72h*/
 	update pediatric_hiv_visit pv, openmrs.obs ob
 	 SET pv.prophylaxie72h=ob.value_coded
 	 WHERE ob.concept_id=5665
 		   and pv.encounter_id=ob.encounter_id
-		   AND pv.location_id=ob.location_id;
+		   AND pv.location_id=ob.location_id
+		   AND ob.voided = 0;
 	/*update for actual_vih_status*/
 	update pediatric_hiv_visit pv, openmrs.obs ob
 	 SET pv.actual_vih_status=ob.value_coded
 	 WHERE ob.concept_id=1401
 		   and pv.encounter_id=ob.encounter_id
-		   AND pv.location_id=ob.location_id;
+		   AND pv.location_id=ob.location_id
+		   AND ob.voided = 0;
 		   
 /*End of pediatric_hiv_visit table*/
 /*Starting Insertion for table patient_menstruation*/
@@ -1040,6 +1115,7 @@ INSERT into virological_tests
                     AND ob.concept_id IN(163732,160597,1427)
 					AND (ent.uuid="5c312603-25c1-4dbe-be18-1a167eb85f97"
 						OR ent.uuid="49592bec-dd22-4b6c-a97f-4dd2af6f2171")
+					AND ob.voided = 0
 						on duplicate key update
 						encounter_id = ob.encounter_id;
 	/*Update table patient_menstruation for having the 
@@ -1048,7 +1124,8 @@ INSERT into virological_tests
 	 SET pm.ddr=DATE(ob.value_datetime)
 	 WHERE ob.concept_id=1427
 		   and pm.encounter_id=ob.encounter_id
-		   AND pm.location_id=ob.location_id;
+		   AND pm.location_id=ob.location_id
+		   AND ob.voided = 0;
 	
 	/*Starting insertion for table vih_risk_factor*/
 	
@@ -1070,6 +1147,7 @@ INSERT into virological_tests
 					AND enc.encounter_type=ent.encounter_type_id
                     AND ob.concept_id IN(1061,160581)
 					AND ob.value_coded IN (163290,163291,105,1063,163273,163274,163289,163275,5567,159218)
+					AND ob.voided = 0
 					AND ent.uuid IN('17536ba6-dd7c-4f58-8014-08c7cb798ac7',
 						'349ae0b4-65c1-4122-aa06-480f186c8350')
 						on duplicate key update
@@ -1092,7 +1170,8 @@ INSERT into virological_tests
 					WHERE ob.encounter_id=enc.encounter_id
 					AND enc.encounter_type=ent.encounter_type_id
                     AND ob.concept_id IN(123160,156660,163276,163278,160579,160580)
-					AND ob.value_coded IN (1065)
+					AND ob.value_coded = 1065
+					AND ob.voided = 0
 					AND ent.uuid IN('17536ba6-dd7c-4f58-8014-08c7cb798ac7',
 						'349ae0b4-65c1-4122-aa06-480f186c8350')
 					on duplicate key update
@@ -1115,6 +1194,7 @@ INSERT into virological_tests
       WHERE ob.encounter_id=enc.encounter_id
         AND enc.encounter_type=ent.encounter_type_id
         AND ob.concept_id=984
+		AND ob.voided = 0
 		on duplicate key update
 		encounter_id = ob.encounter_id;
 
@@ -1151,7 +1231,8 @@ INSERT into virological_tests
       FROM openmrs.obs ob, openmrs.obs ob2
       WHERE ob2.obs_group_id = ob.obs_group_id
         AND ob2.concept_id=1418
-        AND ob.concept_id=984;
+        AND ob.concept_id=984
+		AND ob.voided = 0;
 
       /*Update vaccination table for children 0-45 days old*/
       UPDATE isanteplus.vaccination v
@@ -1276,6 +1357,7 @@ INSERT into virological_tests
                     AND ob1.concept_id=1361	
 					AND ob.concept_id=162087
 					AND ob.value_coded IN(163722,1042)
+					AND ob.voided = 0
 					on duplicate key update
 					encounter_id = ob.encounter_id;
 	
@@ -1285,21 +1367,24 @@ INSERT into virological_tests
 	 WHERE ob.concept_id=163722
 		   AND stests.obs_group_id=ob.obs_group_id
 		   and stests.encounter_id=ob.encounter_id
-		   AND stests.location_id=ob.location_id;
+		   AND stests.location_id=ob.location_id
+		   AND ob.voided = 0;
 	/*Update for area age for tests serologiques*/
 	update serological_tests stests, openmrs.obs ob
 	 SET stests.age=ob.value_numeric
 	 WHERE ob.concept_id=163540
 		   AND stests.obs_group_id=ob.obs_group_id
 		   and stests.encounter_id=ob.encounter_id
-		   AND stests.location_id=ob.location_id;
+		   AND stests.location_id=ob.location_id
+		   AND ob.voided = 0;
 	/*Update for age_unit for tests serologiques*/
 	update serological_tests stests, openmrs.obs ob
 	 SET stests.age_unit=ob.value_coded
 	 WHERE ob.concept_id=163541
 		   AND stests.obs_group_id=ob.obs_group_id
 		   and stests.encounter_id=ob.encounter_id
-		   AND stests.location_id=ob.location_id;
+		   AND stests.location_id=ob.location_id
+		   AND ob.voided = 0;
 	/*Update encounter date for serological_tests*/	   
 	update serological_tests stests, openmrs.encounter enc
     SET stests.encounter_date=DATE(enc.encounter_datetime)
@@ -1341,13 +1426,12 @@ INSERT into virological_tests
 	/*Update for date_started_arv area in patient table */
 	UPDATE patient p, patient_dispensing pdis, 
 	(SELECT pdi.patient_id, MIN(pdi.visit_date) as visit_date 
-	FROM patient_dispensing pdi GROUP BY 1) B, (SELECT darv.drug_id 
-	FROM isanteplus.arv_drugs darv) C
+	FROM patient_dispensing pdi WHERE pdi.drug_id IN (SELECT darv.drug_id 
+	FROM isanteplus.arv_drugs darv) GROUP BY 1) B
 	SET p.date_started_arv = pdis.visit_date
 	WHERE p.patient_id = pdis.patient_id
 	AND pdis.patient_id = B.patient_id
-	AND pdis.visit_date = B.visit_date
-	AND pdis.drug_id = C.drug_id;
+	AND pdis.visit_date = B.visit_date;
 	
 	/* Update on patient_dispensing where the drug is a ARV drug */
 	UPDATE patient_dispensing pdis, (SELECT ad.drug_id FROM arv_drugs ad) B
