@@ -637,7 +637,7 @@ DELETE FROM discontinuation_reason
 					where ob.person_id=ob1.person_id
 					AND ob.encounter_id=ob1.encounter_id
 					AND ob.obs_group_id=ob1.obs_id
-                    AND ob1.concept_id=1442	
+                    AND (ob1.concept_id=1442 OR ob1.concept_id=160741)
 					AND ob.concept_id=1282
 					on duplicate key update
 					encounter_id = ob.encounter_id;
@@ -651,26 +651,38 @@ DELETE FROM discontinuation_reason
 	where patp.encounter_id=en.encounter_id
 	AND en.visit_id=vi.visit_id;
 	/*update rx_or_prophy for table patient_prescription*/
-	update isanteplus.patient_prescription pp, openmrs.obs ob1, openmrs.obs ob2
+	update isanteplus.patient_prescription pp, openmrs.obs ob1, openmrs.obs ob2, openmrs.obs ob3
 		   set pp.rx_or_prophy=ob2.value_coded
 		   WHERE pp.encounter_id=ob2.encounter_id
 		   AND ob1.obs_id=ob2.obs_group_id
-		   AND ob1.concept_id=1442
-		   AND ob2.concept_id=160742;
+           AND ob1.obs_id=ob3.obs_group_id
+		   AND (ob1.concept_id=1442 OR ob1.concept_id=160741)
+		   AND ob2.concept_id=160742
+           AND ob3.concept_id=1282
+           AND pp.drug_id=ob3.value_coded
+           AND ob1.voided=ob2.voided=ob3.voided=0;
     /*update posology_day for table patient_prescription*/
-	update isanteplus.patient_prescription pp, openmrs.obs ob1, openmrs.obs ob2
+	update isanteplus.patient_prescription pp, openmrs.obs ob1, openmrs.obs ob2, openmrs.obs ob3
 		   set pp.posology=ob2.value_text
 		   WHERE pp.encounter_id=ob2.encounter_id
 		   AND ob1.obs_id=ob2.obs_group_id
-		   AND ob1.concept_id=1442
-		   AND ob2.concept_id=1444;
+           AND ob1.obs_id=ob3.obs_group_id
+		   AND (ob1.concept_id=1442 OR ob1.concept_id=160741)
+		   AND ob2.concept_id=1444
+           AND ob3.concept_id=1282
+           AND pp.drug_id=ob3.value_coded
+           AND ob1.voided=ob2.voided=ob3.voided=0;
 	/*update number_day for table patient_prescription*/
-	update isanteplus.patient_prescription pp, openmrs.obs ob1, openmrs.obs ob2
+	update isanteplus.patient_prescription pp, openmrs.obs ob1, openmrs.obs ob2, openmrs.obs ob3
 		   set pp.number_day=ob2.value_numeric
 		   WHERE pp.encounter_id=ob2.encounter_id
 		   AND ob1.obs_id=ob2.obs_group_id
-		   AND ob1.concept_id=1442
-		   AND ob2.concept_id=159368;
+           AND ob1.obs_id=ob3.obs_group_id
+		   AND (ob1.concept_id=1442 OR ob1.concept_id=160741)
+		   AND ob2.concept_id=159368
+           AND ob3.concept_id=1282
+           AND pp.drug_id=ob3.value_coded
+           AND ob1.voided=ob2.voided=ob3.voided=0;
 /*End of patient_prescription*/	
 /*Starting patient_laboratory */
 /*Insertion for patient_laboratory*/
