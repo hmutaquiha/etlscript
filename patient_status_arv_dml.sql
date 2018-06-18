@@ -86,22 +86,48 @@ DELIMITER $$
 		we can't find the historic of the patient status
 	*/
 	/*Starting patient_status_arv*/
+	
+	/*Décédés=1, Transférés=3*/
 	INSERT INTO patient_status_arv(patient_id,id_status,start_date)
 	SELECT v.patient_id,
 	CASE WHEN (ob.value_coded=159) THEN 1
-	WHEN (ob.value_coded=1667) THEN 2
 	WHEN (ob.value_coded=159492) THEN 3
-	END as id_status,MAX(DATE(v.date_started)) AS start_date
-	FROM openmrs.visit v,openmrs.encounter enc,
-	openmrs.encounter_type entype,openmrs.obs ob
+	END as id_status, DATE(v.date_started) AS start_date
+	FROM openmrs.visit v,openmrs.encounter enc,openmrs.encounter_type entype,openmrs.obs ob,
+	(SELECT pvi.patient_id, MAX(DATE(pvi.date_started)) as visit_date 
+						FROM openmrs.visit pvi GROUP BY 1) B,isanteplus.patient_on_arv parv
 	WHERE v.visit_id=enc.visit_id
 	AND enc.encounter_type=entype.encounter_type_id
 	AND enc.encounter_id=ob.encounter_id
+	AND v.patient_id = B.patient_id
+	AND v.date_started = B.visit_date
+	AND enc.patient_id = parv.patient_id
 	AND entype.uuid='9d0113c6-f23a-4461-8428-7e9a7344f2ba'
 	AND ob.concept_id=161555
-	AND ob.value_coded IN(159,1667,159492)
-	AND enc.patient_id IN (SELECT parv.patient_id 
-	FROM isanteplus.patient_on_arv parv)
+	AND ob.value_coded IN(159,159492)
+	GROUP BY v.patient_id
+	on duplicate key
+	update start_date = start_date;
+	
+	/*Arrêtés=2*/
+	INSERT INTO patient_status_arv(patient_id,id_status,start_date)
+	SELECT v.patient_id,2 as id_status, DATE(v.date_started) AS start_date
+	FROM openmrs.visit v,openmrs.encounter enc,
+	openmrs.encounter_type entype,openmrs.obs ob, openmrs.obs ob2,
+	(SELECT pvi.patient_id, MAX(DATE(pvi.date_started)) as date_visit 
+						FROM openmrs.visit pvi GROUP BY 1) B,isanteplus.patient_on_arv parv
+	WHERE v.visit_id=enc.visit_id
+	AND enc.encounter_type=entype.encounter_type_id
+	AND enc.encounter_id=ob.encounter_id
+	AND v.patient_id = B.patient_id
+	AND v.date_started = B.date_visit
+	AND enc.patient_id = parv.patient_id
+	AND ob.encounter_id = ob2.encounter_id
+	AND entype.uuid='9d0113c6-f23a-4461-8428-7e9a7344f2ba'
+	AND ob.concept_id=161555
+	AND ob.value_coded = 1667
+	AND ob2.concept_id = 1667
+	AND ob2.value_coded IN (115198,159737)
 	GROUP BY v.patient_id
 	on duplicate key
 	update start_date = start_date;
@@ -113,14 +139,17 @@ INSERT INTO patient_status_arv(patient_id,id_status,start_date)
 	SELECT v.patient_id,
 	CASE WHEN (ob.value_coded=159) THEN 4
 	WHEN (ob.value_coded=159492) THEN 5
-	END as id_status,MAX(DATE(v.date_started)) AS start_date
+	END as id_status,DATE(v.date_started) AS start_date
 	FROM isanteplus.patient ispat,openmrs.visit v,
 	openmrs.encounter_type entype,openmrs.encounter enc,
-	openmrs.obs ob
+	openmrs.obs ob, (SELECT pvi.patient_id, MAX(DATE(pvi.date_started)) as visit_date 
+						FROM openmrs.visit pvi GROUP BY 1) B
 	WHERE ispat.patient_id=v.patient_id
 	AND v.visit_id=enc.visit_id
 	AND entype.encounter_type_id=enc.encounter_type
 	AND enc.encounter_id=ob.encounter_id
+	AND v.patient_id = B.patient_id
+	AND v.date_started = B.visit_date
 	AND entype.uuid='9d0113c6-f23a-4461-8428-7e9a7344f2ba'
 	AND ob.concept_id=161555
 	AND ispat.vih_status=1
@@ -305,10 +334,13 @@ INSERT INTO patient_status_arv(patient_id,id_status,start_date)
 	MAX(DATE(v.date_started)) AS start_date
 	FROM isanteplus.patient ispat,
 	openmrs.visit v,openmrs.encounter enc,
-	openmrs.encounter_type entype
+	openmrs.encounter_type entype, (SELECT pvi.patient_id, MAX(DATE(pvi.date_started)) as visit_date 
+						FROM openmrs.visit pvi GROUP BY 1) B
 	WHERE ispat.patient_id=v.patient_id
 	AND v.visit_id=enc.visit_id 
 	AND enc.encounter_type=entype.encounter_type_id
+	AND v.patient_id = B.patient_id
+	AND v.date_started = B.visit_date
 	AND enc.patient_id NOT IN 
 	(SELECT dreason.patient_id FROM discontinuation_reason dreason
 	WHERE dreason.reason IN(159,159492))
@@ -346,10 +378,13 @@ INSERT INTO patient_status_arv(patient_id,id_status,start_date)
 	MAX(DATE(v.date_started)) AS start_date
 	FROM isanteplus.patient ispat,
 	openmrs.visit v,openmrs.encounter enc,
-	openmrs.encounter_type entype
+	openmrs.encounter_type entype,(SELECT pvi.patient_id, MAX(DATE(pvi.date_started)) as visit_date 
+						FROM openmrs.visit pvi GROUP BY 1) B
 	WHERE ispat.patient_id=v.patient_id
 	AND v.visit_id=enc.visit_id 
 	AND enc.encounter_type=entype.encounter_type_id
+	AND v.patient_id = B.patient_id
+	AND v.date_started = B.visit_date
 	AND enc.patient_id NOT IN 
 	(SELECT dreason.patient_id FROM discontinuation_reason dreason
 	WHERE dreason.reason IN(159,159492))
