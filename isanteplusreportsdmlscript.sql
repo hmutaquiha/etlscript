@@ -81,32 +81,24 @@ DELIMITER $$
 			WHERE p.patient_id = padd.person_id
 			AND padd.voided = 0;
 			/* update patient with person attribute */
-			
-			update patient pat,(
-			select  
-			(select p1.value from openmrs.person_attribute p1
-			where p1.person_id=p.person_id and pa.person_attribute_type_id=p1.person_attribute_type_id
-			and pa.uuid='8d8718c2-c2cc-11de-8d13-0010c6dffd0f' LIMIT 1) as birthPlace,
-			(select p1.value from openmrs.person_attribute p1 
-			where p1.person_id=p.person_id and pa.person_attribute_type_id=p1.person_attribute_type_id
-			and pa.uuid='14d4f066-15f5-102d-96e4-000c29c2a5d7' LIMIT 1) as phone,
-			(select p1.value from openmrs.person_attribute p1 
-			where p1.person_id=p.person_id and pa.person_attribute_type_id=p1.person_attribute_type_id
-			and pa.uuid='8d871f2a-c2cc-11de-8d13-0010c6dffd0f' LIMIT 1) as civilStatus,
-			(select p1.value from openmrs.person_attribute p1 
-			where p1.person_id=p.person_id and pa.person_attribute_type_id=p1.person_attribute_type_id
-			and pa.uuid='e55fd643-a731-4ff4-83c1-c07827b19722' LIMIT 1) as occupation,
-			(select p1.value from openmrs.person_attribute p1 
-			where p1.person_id=p.person_id and pa.person_attribute_type_id=p1.person_attribute_type_id
-			and pa.uuid='8d871d18-c2cc-11de-8d13-0010c6dffd0f' LIMIT 1) as motherName,
-			p.* from openmrs.person_attribute p,openmrs.person_attribute_type pa
-			where  pa.person_attribute_type_id=p.person_attribute_type_id
-			) p2 set pat.maritalStatus=p2.civilStatus,
-					 pat.occupation=p2.occupation,
-					 pat.telephone=p2.phone,
-					 pat.place_of_birth=p2.birthPlace,
-					 pat.mother_name=p2.motherName
-					 WHERE pat.patient_id=p2.person_id;
+			/*Update for birthPlace*/
+			update patient p, openmrs.person_attribute pa,openmrs.person_attribute_type pat
+			SET p.place_of_birth = pa.value
+			WHERE p.patient_id = pa.person_id
+			AND pa.person_attribute_type_id = pat.person_attribute_type_id
+			AND pat.uuid='8d8718c2-c2cc-11de-8d13-0010c6dffd0f';
+			/*Update for telephone*/
+			update patient p, openmrs.person_attribute pa,openmrs.person_attribute_type pat
+			SET p.telephone = pa.value
+			WHERE p.patient_id = pa.person_id
+			AND pa.person_attribute_type_id = pat.person_attribute_type_id
+			AND pat.uuid='14d4f066-15f5-102d-96e4-000c29c2a5d7';
+			/*Update for mother's Name*/
+			update patient p, openmrs.person_attribute pa,openmrs.person_attribute_type pat
+			SET p.mother_name = pa.value
+			WHERE p.patient_id = pa.person_id
+			AND pa.person_attribute_type_id = pat.person_attribute_type_id
+			AND pat.uuid='8d871d18-c2cc-11de-8d13-0010c6dffd0f';
             /*Update for Civil Status  */
 				update patient p,openmrs.obs o, (
 				select person_id, MAX(obs_datetime) as obsDt FROM openmrs.obs WHERE concept_id = 1054 GROUP BY person_id) ob
@@ -137,6 +129,17 @@ DELIMITER $$
 			 OR ent.uuid='349ae0b4-65c1-4122-aa06-480f186c8350'
 			 OR ent.uuid='33491314-c352-42d0-bd5d-a9d0bffc9bf1')
 			AND en.voided = 0;
+			/*Update for vih_status = 1 where the patient has a labs test hiv positive*/
+			/*UPDATE patient p, openmrs.encounter en, openmrs.obs ob
+			SET p.vih_status=1
+			WHERE p.patient_id=en.patient_id AND en.patient_id = ob.person_id
+			AND (
+				(ob.concept_id = 1042 AND ob.value_coded = 703)
+				OR
+				(ob.concept_id = 1040 AND ob.value_coded = 703)
+				)
+			AND en.voided = 0
+			AND ob.voided = 0;*/
 
 			/* update patient with death information */
 
@@ -331,9 +334,9 @@ insert into patient_tb_diagnosis
 					AND ob.encounter_id=ob1.encounter_id
 					AND ob.obs_group_id=ob1.obs_id
                     AND ob1.concept_id=159947	
-					AND (ob.concept_id=1284 AND ob.value_coded=112141
+					AND ((ob.concept_id=1284 AND ob.value_coded=112141)
 						OR
-						ob.concept_id=1284 AND ob.value_coded=159345)
+						(ob.concept_id=1284 AND ob.value_coded=159345))
 					AND ob.voided = 0
 						on duplicate key update
 						encounter_id = ob.encounter_id;
@@ -381,6 +384,22 @@ insert into patient_tb_diagnosis
 			AND ob.voided = 0
 			on duplicate key update
 			encounter_id = ob.encounter_id;
+/*Insert when the HIV patient has a TB diagnosis 
+(we will find these concepts particularly in the first and follow-up visits HIV forms)*/
+insert into patient_tb_diagnosis
+					(
+						patient_id,
+						encounter_id,
+						location_id
+					)
+			select distinct ob.person_id,ob.encounter_id,ob.location_id
+			FROM openmrs.obs ob
+			where (ob.concept_id = 6042 OR ob.concept_id = 6097)
+			AND (ob.value_coded = 159355 OR ob.value_coded = 42 
+					OR ob.value_coded = 118890 OR ob.value_coded = 5042)
+			AND ob.voided = 0
+			on duplicate key update
+			encounter_id = ob.encounter_id;
 /*update for visit_id AND visit_date*/ 
 update patient_tb_diagnosis pat, openmrs.visit vi, openmrs.encounter en
    set pat.visit_id=vi.visit_id, pat.visit_date=vi.date_started
@@ -407,6 +426,27 @@ update patient_tb_diagnosis pat, openmrs.obs ob,openmrs.obs ob1
     AND ob1.concept_id=159947	
 	AND (ob.concept_id=1284 AND ob.value_coded=159345)
 	AND pat.encounter_id=ob.encounter_id
+	AND ob.voided = 0;
+/*update for M. tuberculosis(TB) pulmonaire*/
+	update patient_tb_diagnosis pat, openmrs.obs ob
+	set pat.tb_pulmonaire = 1
+	where ob.concept_id IN (6042,6097)	
+	AND ob.value_coded = 42
+	AND pat.encounter_id = ob.encounter_id
+	AND ob.voided = 0;
+/*update for Tuberculose multirésistante*/
+	update patient_tb_diagnosis pat, openmrs.obs ob
+	set pat.tb_multiresistante = 1
+	where ob.concept_id IN (6042,6097)	
+	AND ob.value_coded = 159355
+	AND pat.encounter_id = ob.encounter_id
+	AND ob.voided = 0;
+/*update for M. tuberculosis (TB) extrapulmonaire ou disséminée*/
+	update patient_tb_diagnosis pat, openmrs.obs ob
+	set pat.tb_extrapul_ou_diss = 1
+	where ob.concept_id IN (6042,6097)	
+	AND ob.value_coded IN (118890,5042)
+	AND pat.encounter_id = ob.encounter_id
 	AND ob.voided = 0;
 /*update tb_new_diag AND tb_follow_up_diag*/
 	update patient_tb_diagnosis pat, openmrs.obs ob
@@ -435,7 +475,7 @@ update patient_tb_diagnosis pat, openmrs.obs ob,openmrs.obs ob1
 /*update for status_tb_treatment*/
 /*
 	statuts_tb_treatment = Gueri(1),traitement termine(2),
-		Abandon(3),tranfere(4),decede(5)
+		Abandon(3),tranfere(4),decede(5), actuellement sous traitement(6)
 <obs conceptId="CIEL:159786" 
 answerConceptIds="CIEL:159791,CIEL:160035,CIEL:159874,CIEL:160031,CIEL:160034" 
 answerLabels="Guéri,Traitement Terminé,Abandon,Transféré,Décédé" style="radio"/>
@@ -450,6 +490,17 @@ update patient_tb_diagnosis pat, openmrs.obs ob
 	END
 	WHERE pat.encounter_id=ob.encounter_id
 	AND ob.concept_id=159786
+	AND ob.voided = 0;
+/*Update for traitement TB COMPLETE AND Actuellement sous traitement 
+(Area in the HIV first and follow-up visit forms)*/
+update patient_tb_diagnosis pat, openmrs.obs ob
+	SET pat.status_tb_treatment=
+	CASE WHEN ob.value_coded=1663 then 2
+	when ob.value_coded=1662 then 6
+	ELSE null
+	END
+	WHERE pat.encounter_id=ob.encounter_id
+	AND ob.concept_id=1659
 	AND ob.voided = 0;
 /*update tb_treatment_stop_date*/
    update patient_tb_diagnosis pat, openmrs.obs ob

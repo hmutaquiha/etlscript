@@ -74,10 +74,13 @@ CREATE TABLE IF NOT EXISTS patient_tb_diagnosis (
 	tb_new_diag int(11),
 	tb_follow_up_diag int(11),
 	cough_for_2wks_or_more INT(11),
+	tb_pulmonaire INT(11),
+	tb_multiresistante INT(11),
+	tb_extrapul_ou_diss INT(11),
 	tb_treatment_start_date DATE,
 	status_tb_treatment INT(11) default 0,
 	/*statuts_tb_treatment = Gueri(1),traitement_termine(2),
-		Abandon(3),tranfere(4),decede(5)
+		Abandon(3),tranfere(4),decede(5), Actif(6)
 	*/
 	tb_treatment_stop_date DATE,
 	PRIMARY KEY (`encounter_id`,location_id),
