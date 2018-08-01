@@ -491,6 +491,40 @@ update patient_tb_diagnosis pat, openmrs.obs ob
 	WHERE pat.encounter_id=ob.encounter_id
 	AND ob.concept_id=159786
 	AND ob.voided = 0;
+/*Update for Actif and Gueri for TB diagnosis for HIV patient*/
+update patient_tb_diagnosis pat, openmrs.obs ob,
+	(SELECT o.person_id, o.encounter_id, count(o.encounter_id) as nb 
+	FROM openmrs.obs o WHERE o.concept_id=6042 AND o.value_coded IN (42,159355,118890) GROUP BY 1) a
+	SET pat.status_tb_treatment =
+	CASE WHEN (ob.concept_id = 6097 AND a.nb = 0)  then 1
+	WHEN (ob.concept_id = 6042 AND a.nb > 0)  then 6
+	END
+	WHERE pat.encounter_id = ob.encounter_id
+	AND ob.encounter_id = a.encounter_id
+	AND ob.person_id = a.person_id
+	AND ob.value_coded IN (42,159355,118890,5042)
+	AND ob.voided = 0;
+	
+	/*Guéri*/
+	
+	 update isanteplus.patient_tb_diagnosis pat, openmrs.obs ob
+	SET pat.status_tb_treatment = 1
+	WHERE pat.encounter_id = ob.encounter_id
+    AND pat.patient_id = ob.person_id
+	AND ob.concept_id = 6097
+	AND ob.value_coded IN (42,159355,118890,5042)
+	AND ob.voided = 0;
+    
+    /*Actif*/
+    update isanteplus.patient_tb_diagnosis pat, openmrs.obs ob
+	SET pat.status_tb_treatment = 6
+	WHERE pat.encounter_id = ob.encounter_id
+    AND pat.patient_id = ob.person_id
+	AND ob.concept_id = 6042
+	AND ob.value_coded IN (42,159355,118890)
+	AND ob.voided = 0;
+	
+	
 /*Update for traitement TB COMPLETE AND Actuellement sous traitement 
 (Area in the HIV first and follow-up visit forms)*/
 update patient_tb_diagnosis pat, openmrs.obs ob
@@ -572,6 +606,19 @@ update patient_tb_diagnosis pat, openmrs.obs ob
 	AND ob.concept_id=1755
 	AND ob.value_coded=1065
 	AND ob.voided = 0;	
+	/*update rx_or_prophy for table patient_dispensing*/
+	update isanteplus.patient_dispensing pdisp, openmrs.obs ob1, openmrs.obs ob2, openmrs.obs ob3
+		   set pdisp.rx_or_prophy=ob2.value_coded
+		   WHERE pdisp.encounter_id=ob2.encounter_id
+		   AND ob1.obs_id=ob2.obs_group_id
+           AND ob1.obs_id=ob3.obs_group_id
+		   AND pdisp.patient_id = ob2.person_id
+		   AND pdisp.location_id = ob2.location_id
+		   AND (ob1.concept_id=1442 OR ob1.concept_id=160741)
+		   AND ob2.concept_id=160742
+           AND ob3.concept_id=1282
+           AND pdisp.drug_id=ob3.value_coded
+           AND ob1.voided=ob2.voided=ob3.voided=0;
 		/*Insertion for patient_id, visit_id,encounter_id,visit_date for table patient_imagerie */
 insert into patient_imagerie (patient_id,location_id,visit_id,encounter_id,visit_date)
 	select distinct ob.person_id,ob.location_id,vi.visit_id, ob.encounter_id,vi.date_started
