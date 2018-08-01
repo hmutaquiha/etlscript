@@ -105,6 +105,7 @@ CREATE TABLE IF NOT EXISTS patient_dispensing (
 	next_dispensation_date Date,
 	dispensation_location int(11) default 0,
 	arv_drug int(11) default 1066, /*1066=No, 1065=YES*/
+	rx_or_prophy int(11),
 	CONSTRAINT pk_patient_dispensing PRIMARY KEY(encounter_id,location_id,drug_id),
     /*CONSTRAINT FOREIGN KEY (patient_id) REFERENCES isanteplus.patient(patient_id),*/
 	INDEX(visit_date),
