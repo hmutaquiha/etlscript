@@ -4,11 +4,11 @@ DELIMITER $$
 	DROP PROCEDURE IF EXISTS patient_status_arv$$
 	CREATE PROCEDURE patient_status_arv()
 	BEGIN
-      DECLARE myIndex INT;
+     /* DECLARE myIndex INT;
 		select count(*) into myIndex from information_schema.statistics where table_name = 'patient_status_arv' and index_name = 'patient_status_arv_index' and table_schema = 'isanteplus';
 		if(myIndex=0) then 
 			create unique index patient_status_arv_index on patient_status_arv (patient_id, id_status, start_date);
-		end if;
+		end if;*/
 	SET SQL_SAFE_UPDATES = 0;
 	SET FOREIGN_KEY_CHECKS = 0;
 	
@@ -163,10 +163,11 @@ INSERT INTO patient_status_arv(patient_id,id_status,start_date,last_updated_date
 	start_date = start_date,
 	last_updated_date = now();
 	/*Insertion for patient_status réguliers=6*/
-	DROP TABLE if exists patient_status_arv_temp_a;
+	/*DROP TABLE if exists patient_status_arv_temp_a;*/
 	/*Creating temporary table patient_status_arv_temp_a*/
-	CREATE TEMPORARY TABLE patient_status_arv_temp_a
-	SELECT pdis.patient_id,6 as id_status,MAX(DATE(pdis.visit_date)) as start_date
+	/*CREATE TEMPORARY TABLE patient_status_arv_temp_a*/
+	INSERT INTO patient_status_arv(patient_id,id_status,start_date,last_updated_date)
+	SELECT pdis.patient_id,6 as id_status,MAX(DATE(pdis.visit_date)) as start_date, now()
 	FROM isanteplus.patient ipat,isanteplus.patient_dispensing pdis,isanteplus.patient_on_arv p,
 	(select pdisp.patient_id, MAX(pdisp.next_dispensation_date) as mnext_disp from isanteplus.patient_dispensing pdisp group by 1) mndisp,
 	openmrs.encounter enc,
@@ -180,29 +181,32 @@ INSERT INTO patient_status_arv(patient_id,id_status,start_date,last_updated_date
 	NOT IN(SELECT dreason.patient_id FROM discontinuation_reason dreason
 	WHERE dreason.reason IN(159,1667,159492))
 	AND enc.patient_id = p.patient_id
-	AND entype.uuid NOT IN ('f037e97b-471e-4898-a07c-b8e169e0ddc4',
-	                        'a0d57dca-3028-4153-88b7-c67a30fde595',
-							'51df75f7-a3de-4f82-a9df-c0bedaf5a2dd'
+	AND entype.uuid IN ('10d73929-54b6-4d18-a647-8b7316bc1ae3',
+	                        'a9392241-109f-4d67-885b-57cc4b8c638f'
 							)
 	AND((DATE(now()) <= pdis.next_dispensation_date))
-	GROUP BY pdis.patient_id;
+	GROUP BY pdis.patient_id
+	on duplicate key update 
+	start_date = start_date,
+	last_updated_date = now();
 	
-	create index patient_status_arv_index_a on patient_status_arv_temp_a (patient_id, id_status, start_date);
+	/*create index patient_status_arv_index_a on patient_status_arv_temp_a (patient_id, id_status, start_date);*/
 	/*Adding status into patient_status_arv table */
-	INSERT INTO patient_status_arv(patient_id,id_status,start_date,last_updated_date)
+	/*INSERT INTO patient_status_arv(patient_id,id_status,start_date,last_updated_date)
     select distinct psat.patient_id, psat.id_status, psat.start_date, now() 
 	from patient_status_arv_temp_a psat
 	on duplicate key update 
-	start_date = psat.start_date,
-	last_updated_date = now();
+	start_date = start_date,
+	last_updated_date = now();*/
 	
 	/*truncate the temporary table after the insertion */
-	truncate table patient_status_arv_temp_a;
+	/*truncate table patient_status_arv_temp_a;*/
 /*=========================================================*/
 	
 /*Insertion for patient_status Rendez-vous ratés=8*/
-	INSERT INTO patient_status_arv_temp_a
-	SELECT pdis.patient_id,8 as id_status,MAX(DATE(pdis.visit_date)) as start_date
+	/*INSERT INTO patient_status_arv_temp_a*/
+	INSERT INTO patient_status_arv(patient_id,id_status,start_date,last_updated_date)
+	SELECT pdis.patient_id,8 as id_status,MAX(DATE(pdis.visit_date)) as start_date, now()
 	FROM isanteplus.patient ipat,isanteplus.patient_dispensing pdis,(select pdisp.patient_id, MAX(pdisp.next_dispensation_date) as mnext_disp from isanteplus.patient_dispensing pdisp group by 1) mndisp,
 	openmrs.encounter enc,
 	openmrs.encounter_type entype
@@ -216,28 +220,30 @@ INSERT INTO patient_status_arv(patient_id,id_status,start_date,last_updated_date
 	WHERE dreason.reason IN(159,1667,159492))
 	AND enc.patient_id IN (SELECT parv.patient_id 
 	FROM isanteplus.patient_on_arv parv)
-	AND entype.uuid NOT IN ('f037e97b-471e-4898-a07c-b8e169e0ddc4',
-	                        'a0d57dca-3028-4153-88b7-c67a30fde595',
-							'51df75f7-a3de-4f82-a9df-c0bedaf5a2dd'
+	AND entype.uuid IN ('10d73929-54b6-4d18-a647-8b7316bc1ae3',
+	                        'a9392241-109f-4d67-885b-57cc4b8c638f'
 							) 
 	AND (DATEDIFF(DATE(now()),pdis.next_dispensation_date)<=30)
 	AND((DATE(now()) > pdis.next_dispensation_date))
-	GROUP BY pdis.patient_id;
+	GROUP BY pdis.patient_id
+	on duplicate key update 
+	start_date = start_date,
+	last_updated_date = now();
 
 	/*Insertion for status on the table patient_arv_status Rendez-vous ratés=8*/
 	/*Adding status into patient_status_arv table */
-	INSERT INTO patient_status_arv(patient_id,id_status,start_date,last_updated_date)
+	/*INSERT INTO patient_status_arv(patient_id,id_status,start_date,last_updated_date)
     select distinct psat.patient_id,psat.id_status,psat.start_date,now() 
 	from patient_status_arv_temp_a psat
 	on duplicate key update 
 	start_date = psat.start_date,
-	last_updated_date = now();
+	last_updated_date = now();*/
 	/*truncate the temporary table after the insertion */
-	truncate table patient_status_arv_temp_a;
+	/*truncate table patient_status_arv_temp_a;*/
 	
 /*Insertion for patient_status Perdus de vue=9*/
-	INSERT INTO patient_status_arv_temp_a
-	SELECT pdis.patient_id,9 as id_status,MAX(DATE(pdis.visit_date)) as start_date
+	INSERT INTO patient_status_arv(patient_id,id_status,start_date,last_updated_date)
+	SELECT pdis.patient_id,9 as id_status,MAX(DATE(pdis.visit_date)) as start_date, now()
 	FROM isanteplus.patient_dispensing pdis,(select pdisp.patient_id, MAX(pdisp.next_dispensation_date) as mnext_disp from isanteplus.patient_dispensing pdisp group by 1) mndisp,
 	openmrs.encounter enc,openmrs.encounter_type entype
 	WHERE pdis.visit_id=enc.visit_id
@@ -251,22 +257,24 @@ INSERT INTO patient_status_arv(patient_id,id_status,start_date,last_updated_date
 	FROM isanteplus.patient_on_arv parv)
 	AND (DATE(now()) > pdis.next_dispensation_date)
 	AND (DATEDIFF(DATE(now()),pdis.next_dispensation_date)>30)
-	AND entype.uuid NOT IN ('f037e97b-471e-4898-a07c-b8e169e0ddc4',
-	                        'a0d57dca-3028-4153-88b7-c67a30fde595',
-							'51df75f7-a3de-4f82-a9df-c0bedaf5a2dd'
+	AND entype.uuid IN ('10d73929-54b6-4d18-a647-8b7316bc1ae3',
+	                        'a9392241-109f-4d67-885b-57cc4b8c638f'
 							)
-	GROUP BY pdis.patient_id;
+	GROUP BY pdis.patient_id
+	on duplicate key update 
+	start_date = start_date,
+	last_updated_date = now();
 	
 	/*Insertion for status on the table patient_arv_status Perdus de vue=9*/
 	/*Adding status into patient_status_arv table */
-	INSERT INTO patient_status_arv(patient_id,id_status,start_date,last_updated_date)
+	/*INSERT INTO patient_status_arv(patient_id,id_status,start_date,last_updated_date)
     select distinct psat.patient_id,psat.id_status,psat.start_date,now() 
 	from patient_status_arv_temp_a psat
 	on duplicate key update 
 	start_date = psat.start_date,
-	last_updated_date = now();
+	last_updated_date = now();*/
 	/*truncate the temporary table after the insertion */
-	truncate table patient_status_arv_temp_a;
+	/*truncate table patient_status_arv_temp_a;*/
 	
 /*INSERTION for patient status,
      Perdus de vue en Pré-ARV=10 */
@@ -347,7 +355,7 @@ INSERT INTO patient_status_arv(patient_id,id_status,start_date,last_updated_date
 	update start_date = start_date,
 	last_updated_date = now();
 		
-	DROP TABLE patient_status_arv_temp_a;
+	/*DROP TABLE patient_status_arv_temp_a;*/
 	
 	/*===========================================================*/
 	/*UPDATE Discontinuations reason in table patient_status_ARV*/

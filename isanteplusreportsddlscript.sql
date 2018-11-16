@@ -239,7 +239,8 @@ Raison d'arrêt inconnue=1067
 	start_date date,
 	end_date date,
 	dis_reason int(11),
-	last_updated_date DATETIME
+	last_updated_date DATETIME,
+	CONSTRAINT pk_patient_status_arv PRIMARY KEY (patient_id,id_status,start_date)
 	);
 	
 /*Create table for medicaments prescrits*/
