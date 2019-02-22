@@ -653,3 +653,78 @@ CREATE TABLE IF NOT EXISTS `openmrs.isanteplus_patient_arv` (
 
 	
 GRANT SELECT ON isanteplus.* TO 'openmrs_user'@'localhost';
+
+
+DELIMITER $$
+	DROP PROCEDURE IF EXISTS isanteplus.set_scheduler_and_lock_wait_variable$$
+	CREATE PROCEDURE isanteplus.set_scheduler_and_lock_wait_variable()
+	BEGIN
+			SET GLOBAL event_scheduler = 1 ;
+			SET innodb_lock_wait_timeout = 250;
+    
+    END$$
+	DELIMITER ;
+
+GRANT EXECUTE ON PROCEDURE isanteplus.set_scheduler_and_lock_wait_variable TO 'openmrs_user'@'localhost';
+
+/*Adding column voided for all the table*/
+ALTER TABLE isanteplus.patient
+ADD COLUMN voided tinyint(1);
+
+ALTER TABLE isanteplus.patient_visit
+ADD COLUMN voided tinyint(1);
+
+ALTER TABLE isanteplus.patient_tb_diagnosis
+ADD COLUMN voided tinyint(1);
+
+ALTER TABLE isanteplus.patient_dispensing
+ADD COLUMN voided tinyint(1);
+
+ALTER TABLE isanteplus.patient_imagerie
+ADD COLUMN voided tinyint(1);
+
+ALTER TABLE isanteplus.patient_on_arv
+ADD COLUMN voided tinyint(1);
+
+ALTER TABLE isanteplus.patient_prescription
+ADD COLUMN voided tinyint(1);
+
+ALTER TABLE isanteplus.patient_laboratory
+ADD COLUMN voided tinyint(1);
+
+ALTER TABLE isanteplus.patient_pregnancy
+ADD COLUMN voided tinyint(1);
+
+ALTER TABLE isanteplus.patient_diagnosis
+ADD COLUMN voided tinyint(1);
+
+ALTER TABLE isanteplus.visit_type
+ADD COLUMN voided tinyint(1);
+
+ALTER TABLE isanteplus.virological_tests
+ADD COLUMN voided tinyint(1);
+
+ALTER TABLE isanteplus.patient_delivery
+ADD COLUMN voided tinyint(1);
+
+ALTER TABLE isanteplus.pediatric_hiv_visit
+ADD COLUMN voided tinyint(1);
+
+ALTER TABLE isanteplus.patient_menstruation
+ADD COLUMN voided tinyint(1);
+
+ALTER TABLE isanteplus.vih_risk_factor
+ADD COLUMN voided tinyint(1);
+
+ALTER TABLE isanteplus.vaccination
+ADD COLUMN voided tinyint(1);
+
+ALTER TABLE isanteplus.health_qual_patient_visit
+ADD COLUMN voided tinyint(1);
+
+ALTER TABLE isanteplus.serological_tests
+ADD COLUMN voided tinyint(1);
+
+
+
+

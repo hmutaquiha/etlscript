@@ -87,24 +87,45 @@ DELIMITER $$
 	*/
 	/*Starting patient_status_arv*/
 	
-	/*Décédés=1, Transférés=3*/
+	/*Décédés=1*/
 	INSERT INTO patient_status_arv(patient_id,id_status,start_date,last_updated_date)
-	SELECT v.patient_id,
-	CASE WHEN (ob.value_coded=159) THEN 1
-	WHEN (ob.value_coded=159492) THEN 3
-	END as id_status, DATE(v.date_started) AS start_date, now()
+	SELECT v.patient_id, 1 as id_status, DATE(v.date_started) AS start_date, now()
 	FROM openmrs.visit v,openmrs.encounter enc,openmrs.encounter_type entype,openmrs.obs ob,
 	(SELECT pvi.patient_id, MAX(DATE(pvi.date_started)) as visit_date 
-						FROM openmrs.visit pvi GROUP BY 1) B,isanteplus.patient_on_arv parv
-	WHERE v.visit_id=enc.visit_id
-	AND enc.encounter_type=entype.encounter_type_id
-	AND enc.encounter_id=ob.encounter_id
+						FROM openmrs.visit pvi where pvi.voided = 0 GROUP BY 1) B,
+						isanteplus.patient_on_arv parv
+	WHERE v.visit_id = enc.visit_id
+	AND enc.encounter_type = entype.encounter_type_id
+	AND enc.encounter_id = ob.encounter_id
 	AND v.patient_id = B.patient_id
-	AND v.date_started = B.visit_date
+	AND DATE(v.date_started) = B.visit_date
 	AND enc.patient_id = parv.patient_id
-	AND entype.uuid='9d0113c6-f23a-4461-8428-7e9a7344f2ba'
-	AND ob.concept_id=161555
-	AND ob.value_coded IN(159,159492)
+	AND entype.uuid = '9d0113c6-f23a-4461-8428-7e9a7344f2ba'
+	AND ob.concept_id = 161555
+	AND ob.value_coded = 159
+	AND ob.voided = 0
+	GROUP BY v.patient_id
+	on duplicate key update 
+	start_date = start_date,
+	last_updated_date = now();
+	
+	/*Transférés=3*/
+	
+	INSERT INTO patient_status_arv(patient_id,id_status,start_date,last_updated_date)
+	SELECT v.patient_id, 3 as id_status, DATE(v.date_started) AS start_date, now()
+	FROM openmrs.visit v,openmrs.encounter enc,openmrs.encounter_type entype,openmrs.obs ob,
+	(SELECT pvi.patient_id, MAX(DATE(pvi.date_started)) as visit_date 
+						FROM openmrs.visit pvi where pvi.voided = 0 GROUP BY 1) B,isanteplus.patient_on_arv parv
+	WHERE v.visit_id = enc.visit_id
+	AND enc.encounter_type = entype.encounter_type_id
+	AND enc.encounter_id = ob.encounter_id
+	AND v.patient_id = B.patient_id
+	AND DATE(v.date_started) = B.visit_date
+	AND enc.patient_id = parv.patient_id
+	AND entype.uuid = '9d0113c6-f23a-4461-8428-7e9a7344f2ba'
+	AND ob.concept_id = 161555
+	AND ob.value_coded = 159492
+	AND ob.voided = 0
 	GROUP BY v.patient_id
 	on duplicate key update 
 	start_date = start_date,
@@ -116,7 +137,7 @@ DELIMITER $$
 	FROM openmrs.visit v,openmrs.encounter enc,
 	openmrs.encounter_type entype,openmrs.obs ob, openmrs.obs ob2,
 	(SELECT pvi.patient_id, MAX(DATE(pvi.date_started)) as date_visit 
-						FROM openmrs.visit pvi GROUP BY 1) B,isanteplus.patient_on_arv parv
+						FROM openmrs.visit pvi where pvi.voided = 0 GROUP BY 1) B,isanteplus.patient_on_arv parv
 	WHERE v.visit_id=enc.visit_id
 	AND enc.encounter_type=entype.encounter_type_id
 	AND enc.encounter_id=ob.encounter_id
@@ -127,6 +148,7 @@ DELIMITER $$
 	AND entype.uuid='9d0113c6-f23a-4461-8428-7e9a7344f2ba'
 	AND ob.concept_id=161555
 	AND ob.value_coded = 1667
+	AND ob.voided = 0
 	AND ob2.concept_id = 1667
 	AND ob2.value_coded IN (115198,159737)
 	GROUP BY v.patient_id
@@ -145,7 +167,7 @@ INSERT INTO patient_status_arv(patient_id,id_status,start_date,last_updated_date
 	FROM isanteplus.patient ispat,openmrs.visit v,
 	openmrs.encounter_type entype,openmrs.encounter enc,
 	openmrs.obs ob, (SELECT pvi.patient_id, MAX(DATE(pvi.date_started)) as visit_date 
-						FROM openmrs.visit pvi GROUP BY 1) B
+						FROM openmrs.visit pvi where pvi.voided = 0 GROUP BY 1) B
 	WHERE ispat.patient_id=v.patient_id
 	AND v.visit_id=enc.visit_id
 	AND entype.encounter_type_id=enc.encounter_type
@@ -158,6 +180,7 @@ INSERT INTO patient_status_arv(patient_id,id_status,start_date,last_updated_date
 	AND enc.patient_id NOT IN(SELECT parv.patient_id 
 	FROM isanteplus.patient_on_arv parv)
 	AND ob.value_coded IN(159,159492)
+	AND ob.voided = 0
 	GROUP BY v.patient_id
 	on duplicate key update 
 	start_date = start_date,
@@ -169,7 +192,8 @@ INSERT INTO patient_status_arv(patient_id,id_status,start_date,last_updated_date
 	INSERT INTO patient_status_arv(patient_id,id_status,start_date,last_updated_date)
 	SELECT pdis.patient_id,6 as id_status,MAX(DATE(pdis.visit_date)) as start_date, now()
 	FROM isanteplus.patient ipat,isanteplus.patient_dispensing pdis,isanteplus.patient_on_arv p,
-	(select pdisp.patient_id, MAX(pdisp.next_dispensation_date) as mnext_disp from isanteplus.patient_dispensing pdisp group by 1) mndisp,
+	(select pdisp.patient_id, MAX(pdisp.next_dispensation_date) as mnext_disp 
+	from isanteplus.patient_dispensing pdisp WHERE pdisp.voided <> 1 group by 1) mndisp,
 	openmrs.encounter enc,
 	openmrs.encounter_type entype
 	WHERE ipat.patient_id=pdis.patient_id
@@ -207,7 +231,9 @@ INSERT INTO patient_status_arv(patient_id,id_status,start_date,last_updated_date
 	/*INSERT INTO patient_status_arv_temp_a*/
 	INSERT INTO patient_status_arv(patient_id,id_status,start_date,last_updated_date)
 	SELECT pdis.patient_id,8 as id_status,MAX(DATE(pdis.visit_date)) as start_date, now()
-	FROM isanteplus.patient ipat,isanteplus.patient_dispensing pdis,(select pdisp.patient_id, MAX(pdisp.next_dispensation_date) as mnext_disp from isanteplus.patient_dispensing pdisp group by 1) mndisp,
+	FROM isanteplus.patient ipat,isanteplus.patient_dispensing pdis,
+	(select pdisp.patient_id, MAX(pdisp.next_dispensation_date) as mnext_disp 
+	from isanteplus.patient_dispensing pdisp WHERE pdisp.voided <> 1 group by 1) mndisp,
 	openmrs.encounter enc,
 	openmrs.encounter_type entype
 	WHERE ipat.patient_id=pdis.patient_id
@@ -244,7 +270,9 @@ INSERT INTO patient_status_arv(patient_id,id_status,start_date,last_updated_date
 /*Insertion for patient_status Perdus de vue=9*/
 	INSERT INTO patient_status_arv(patient_id,id_status,start_date,last_updated_date)
 	SELECT pdis.patient_id,9 as id_status,MAX(DATE(pdis.visit_date)) as start_date, now()
-	FROM isanteplus.patient_dispensing pdis,(select pdisp.patient_id, MAX(pdisp.next_dispensation_date) as mnext_disp from isanteplus.patient_dispensing pdisp group by 1) mndisp,
+	FROM isanteplus.patient_dispensing pdis,
+	(select pdisp.patient_id, MAX(pdisp.next_dispensation_date) as mnext_disp 
+	from isanteplus.patient_dispensing pdisp WHERE pdisp.voided <> 1 group by 1) mndisp,
 	openmrs.encounter enc,openmrs.encounter_type entype
 	WHERE pdis.visit_id=enc.visit_id
 	AND pdis.patient_id = mndisp.patient_id
@@ -284,7 +312,7 @@ INSERT INTO patient_status_arv(patient_id,id_status,start_date,last_updated_date
 	FROM isanteplus.patient ispat,
 	openmrs.visit v,openmrs.encounter enc,
 	openmrs.encounter_type entype, (SELECT pvi.patient_id, MAX(DATE(pvi.date_started)) as visit_date 
-						FROM openmrs.visit pvi GROUP BY 1) B
+						FROM openmrs.visit pvi WHERE pvi.voided <> 1 GROUP BY 1) B
 	WHERE ispat.patient_id=v.patient_id
 	AND v.visit_id=enc.visit_id 
 	AND enc.encounter_type=entype.encounter_type_id
@@ -329,7 +357,7 @@ INSERT INTO patient_status_arv(patient_id,id_status,start_date,last_updated_date
 	FROM isanteplus.patient ispat,
 	openmrs.visit v,openmrs.encounter enc,
 	openmrs.encounter_type entype,(SELECT pvi.patient_id, MAX(DATE(pvi.date_started)) as visit_date 
-						FROM openmrs.visit pvi GROUP BY 1) B
+						FROM openmrs.visit pvi WHERE pvi.voided <> 1 GROUP BY 1) B
 	WHERE ispat.patient_id=v.patient_id
 	AND v.visit_id=enc.visit_id 
 	AND enc.encounter_type=entype.encounter_type_id
