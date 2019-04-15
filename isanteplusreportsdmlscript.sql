@@ -18,7 +18,8 @@ DELIMITER $$
 					 creator, 
 					 date_created,
 					 last_inserted_date,
-					 last_updated_date
+					 last_updated_date,
+					 voided
 					)
 					select pn.person_id,
 						   pn.given_name,
@@ -28,10 +29,10 @@ DELIMITER $$
 						   pn.creator,
 						   pn.date_created,
 						   now() as last_inserted_date,
-						   now() as last_updated_date
+						   now() as last_updated_date,
+						   pn.voided
 					from openmrs.person_name pn, openmrs.person pe, openmrs.patient pa 
 					where pe.person_id=pn.person_id AND pe.person_id=pa.patient_id
-					AND pn.voided = 0
 					on duplicate key update 
 						given_name=pn.given_name,
 						family_name=pn.family_name,
@@ -39,7 +40,8 @@ DELIMITER $$
 						birthdate=pe.birthdate,
 						creator=pn.creator,
 						date_created=pn.date_created,
-						last_updated_date = now();
+						last_updated_date = now(),
+						voided = pn.voided;
 
 			/* update patient with identifier */
 			/*ST CODE*/
@@ -47,22 +49,19 @@ DELIMITER $$
 			openmrs.patient_identifier_type pit set p.st_id=pi.identifier 
 			where p.patient_id=pi.patient_id 
 			AND pi.identifier_type=pit.patient_identifier_type_id
-			and pit.uuid="d059f6d0-9e42-4760-8de1-8316b48bc5f1"
-			AND pi.voided = 0;
+			and pit.uuid="d059f6d0-9e42-4760-8de1-8316b48bc5f1";
             /*National ID*/
 			update patient p,openmrs.patient_identifier pi, 
 			openmrs.patient_identifier_type pit set p.national_id=pi.identifier 
 			where p.patient_id=pi.patient_id 
 			AND pi.identifier_type=pit.patient_identifier_type_id
-			and pit.uuid="9fb4533d-4fd5-4276-875b-2ab41597f5dd"
-			AND pi.voided = 0;
+			and pit.uuid="9fb4533d-4fd5-4276-875b-2ab41597f5dd";
 			/*iSantePlus_ID*/
 			update patient p,openmrs.patient_identifier pi, 
 			openmrs.patient_identifier_type pit set p.identifier=pi.identifier 
 			where p.patient_id=pi.patient_id 
 			AND pi.identifier_type=pit.patient_identifier_type_id
-			and pit.uuid="05a29f94-c0ed-11e2-94be-8c13b969e334"
-			AND pi.voided = 0;
+			and pit.uuid="05a29f94-c0ed-11e2-94be-8c13b969e334";
 
 			/* update location_id for patients*/
 				update patient p,
@@ -82,8 +81,7 @@ DELIMITER $$
 			ELSE
               padd.address2
             END
-			WHERE p.patient_id = padd.person_id
-			AND padd.voided = 0;
+			WHERE p.patient_id = padd.person_id;
 			/* update patient with person attribute */
 			/*Update for birthPlace*/
 			update patient p, openmrs.person_attribute pa,openmrs.person_attribute_type pat
@@ -107,7 +105,7 @@ DELIMITER $$
 			drop table if exists patient_obs_temp;
 			CREATE TEMPORARY TABLE patient_obs_temp
 			select person_id, MAX(obs_datetime) as obsDt, value_coded 
-			FROM openmrs.obs WHERE concept_id = 1054 AND voided = 0
+			FROM openmrs.obs WHERE concept_id = 1054
 			GROUP BY person_id;
 			
 			update patient p, patient_obs_temp po
@@ -118,7 +116,7 @@ DELIMITER $$
 			drop table if exists patient_obs_temp;
 			CREATE TEMPORARY TABLE patient_obs_temp
 			select person_id, MAX(obs_datetime) as obsDt, value_coded 
-			FROM openmrs.obs WHERE concept_id = 1542 AND voided = 0
+			FROM openmrs.obs WHERE concept_id = 1542
 			GROUP BY person_id;
 			
 			update patient p, patient_obs_temp po
@@ -185,11 +183,13 @@ DELIMITER $$
 			drop table if exists patient_obs_temp;
 			CREATE TEMPORARY TABLE patient_obs_temp
 			select o.person_id, MIN(o.obs_datetime) as obsDt, o.value_coded 
-			FROM openmrs.obs ob, openmrs.obs o, isanteplus.arv_drugs darv
+			FROM openmrs.obs ob, openmrs.obs o, openmrs.obs ob2, isanteplus.arv_drugs darv
 			WHERE ob.obs_id = o.obs_group_id
+			AND o.obs_group_id = ob2.obs_group_id
 			AND o.value_coded = darv.drug_id
 			AND ob.concept_id = 163711
 			AND o.concept_id = 1282
+			AND ob2.concept_id IN(1276,1444,159368,1443)
 			AND o.voided = 0
 			GROUP BY o.person_id;
 			
@@ -214,12 +214,12 @@ DELIMITER $$
 			(visit_date,visit_id,encounter_id,location_id,
 			 patient_id,start_date,stop_date,creator,
 			 encounter_type,form_id,next_visit_date,
-			last_insert_date, last_updated_date)
+			last_insert_date, last_updated_date, voided)
 			select v.date_started as visit_date,
 				   v.visit_id,e.encounter_id,v.location_id,
 				   v.patient_id,v.date_started,v.date_stopped,
 				   v.creator,e.encounter_type,e.form_id,o.value_datetime,
-				   now() as last_inserted_date, now() as last_updated_date
+				   now() as last_inserted_date, now() as last_updated_date, v.voided
 			from openmrs.visit v,openmrs.encounter e,openmrs.obs o
 			where v.visit_id=e.visit_id and v.patient_id=e.patient_id
 				  and o.person_id=e.patient_id and o.encounter_id=e.encounter_id
@@ -227,7 +227,8 @@ DELIMITER $$
 				AND o.voided = 0
 				on duplicate key update 
 				next_visit_date = o.value_datetime,
-				last_updated_date = now();
+				last_updated_date = now(),
+				voided = v.voided;
 			/* insert data to patient_visit table */
 		END$$
 DELIMITER ;
@@ -244,10 +245,11 @@ DELIMITER $$
 					 location_id,
 					 drug_id,
 					 dispensation_date,
-					 last_updated_date
+					 last_updated_date,
+					 voided
 					)
 					select distinct ob.person_id,
-					ob.encounter_id,ob.location_id,ob.value_coded,ob2.obs_datetime, now()
+					ob.encounter_id,ob.location_id,ob.value_coded,ob2.obs_datetime, now(), ob.voided
 					from openmrs.obs ob, openmrs.obs ob1,openmrs.obs ob2
 					where ob.person_id=ob1.person_id
 					AND ob.encounter_id=ob1.encounter_id
@@ -256,10 +258,10 @@ DELIMITER $$
                     AND ob1.concept_id=163711	
 					AND ob.concept_id=1282
 					AND ob2.concept_id IN(1276,1444,159368,1443)
-					AND ob.voided = 0
 					ON DUPLICATE KEY UPDATE
 					dispensation_date = ob2.obs_datetime,
-					last_updated_date = now();
+					last_updated_date = now(),
+					voided = ob.voided;
 	
 	/*update next_dispensation_date for table patient_dispensing*/	
 	update patient_dispensing patdisp, openmrs.obs ob 
@@ -353,21 +355,53 @@ DELIMITER $$
 					 location_id,
 					 drug_id,
 					 dispense,
-					 last_updated_date
+					 last_updated_date,
+					 voided
 					)
 					select distinct ob.person_id,
 					ob.encounter_id,ob.location_id,ob.value_coded,
-					 IF(ob1.concept_id=163711, 1065, 1066), now()
-					from openmrs.obs ob, openmrs.obs ob1
+					 IF(ob1.concept_id=163711, 1065, 1066), now(), ob.voided
+					from openmrs.obs ob, openmrs.obs ob1, openmrs.obs ob2
 					where ob.person_id=ob1.person_id
 					AND ob.encounter_id=ob1.encounter_id
 					AND ob.obs_group_id=ob1.obs_id
+					AND ob1.obs_id = ob2.obs_group_id
                     AND (ob1.concept_id=1442 OR ob1.concept_id=163711)
 					AND ob.concept_id=1282
-					AND ob.voided = 0
+					AND ob2.concept_id IN(160742,1276,1444,159368,1443)
 					on duplicate key update
 					encounter_id = ob.encounter_id,
-					last_updated_date = now();
+					last_updated_date = now(),
+					voided = ob.voided;
+					
+	/*Insert for dispensing drugs*/
+	
+	INSERT into patient_prescription
+					(
+					 patient_id,
+					 encounter_id,
+					 location_id,
+					 drug_id,
+					 dispensation_date,
+					 dispense,
+					 last_updated_date,
+					 voided
+					)
+					select distinct ob.person_id,
+					ob.encounter_id,ob.location_id,ob.value_coded,ob2.obs_datetime, 1065, now(), ob.voided
+					from openmrs.obs ob, openmrs.obs ob1,openmrs.obs ob2
+					where ob.person_id=ob1.person_id
+					AND ob.encounter_id=ob1.encounter_id
+					AND ob.obs_group_id=ob1.obs_id
+					AND ob1.obs_id = ob2.obs_group_id
+                    AND ob1.concept_id=163711	
+					AND ob.concept_id=1282
+					AND ob2.concept_id IN(1276,1444,159368,1443)
+					ON DUPLICATE KEY UPDATE
+					dispensation_date = ob2.obs_datetime,
+					dispense = 1065,
+					last_updated_date = now(),
+					voided = ob.voided;
 					
 	/* Update on patient_prescription where the drug is a ARV drug */
 		   UPDATE patient_prescription ppres, (SELECT ad.drug_id FROM arv_drugs ad) B
@@ -431,6 +465,36 @@ DELIMITER $$
            AND ob3.concept_id=1282
            AND pp.drug_id=ob3.value_coded
            AND ob2.voided = 0;
+	/*Update number_day_dispense for patient_prescription*/
+	update isanteplus.patient_prescription patdisp, openmrs.obs ob, openmrs.obs ob1
+	SET patdisp.number_day_dispense=ob.value_numeric
+	WHERE patdisp.encounter_id=ob.encounter_id
+	AND ob.encounter_id=ob1.encounter_id
+	AND ob.obs_group_id=ob1.obs_id
+    AND ob1.concept_id=163711
+	AND ob.concept_id=159368
+	AND ob.voided = 0;
+	/*Update pills_amount_dispense for patient_prescription*/
+	update isanteplus.patient_prescription patdisp, openmrs.obs ob, openmrs.obs ob1
+	SET patdisp.pills_amount_dispense=ob.value_numeric
+	WHERE patdisp.encounter_id=ob.encounter_id
+	AND ob.encounter_id=ob1.encounter_id
+	AND ob.obs_group_id=ob1.obs_id
+    AND ob1.concept_id=163711
+	AND ob.concept_id=1443
+	AND ob.voided = 0;
+	
+	/*Update for having dispensation_date of the drug*/
+	update isanteplus.patient_prescription pp, openmrs.obs ob1, openmrs.obs ob2, openmrs.obs ob3
+		   set pp.dispensation_date = DATE(ob3.obs_datetime)
+		   WHERE pp.encounter_id = ob3.encounter_id
+		   AND ob1.obs_id = ob2.obs_group_id
+           AND ob1.obs_id = ob3.obs_group_id
+		   AND ob1.concept_id = 163711
+		   AND ob2.concept_id = 1282
+           AND ob3.concept_id = 1276
+           AND pp.drug_id = ob2.value_coded
+           AND ob3.voided = 0;
 		   
 /*End of patient_prescription*/	
 
@@ -445,8 +509,8 @@ DELIMITER $$
 			SET SQL_SAFE_UPDATES = 0;
 			SET FOREIGN_KEY_CHECKS=0;
 			 /* Insert data to health_qual_patient_visit table */
-        INSERT INTO health_qual_patient_visit (visit_date, visit_id, encounter_id, location_id, patient_id, encounter_type, last_insert_date, last_updated_date)
-          SELECT v.date_started AS visit_date, v.visit_id, e.encounter_id,v.location_id, v.patient_id, e.encounter_type, now() as last_insert_date, now() as last_updated_date
+        INSERT INTO health_qual_patient_visit (visit_date, visit_id, encounter_id, location_id, patient_id, encounter_type, last_insert_date, last_updated_date, voided)
+          SELECT v.date_started AS visit_date, v.visit_id, e.encounter_id,v.location_id, v.patient_id, e.encounter_type, now() as last_insert_date, now() as last_updated_date, v.voided
           FROM openmrs.visit v,openmrs.encounter e,openmrs.obs o
           WHERE v.visit_id = e.visit_id
             AND v.patient_id = e.patient_id
@@ -455,7 +519,8 @@ DELIMITER $$
 			AND o.voided = 0
 			on duplicate key update
 			encounter_id = e.encounter_id,
-			last_updated_date = now();
+			last_updated_date = now(),
+			voided = v.voided;
 
         /*Update health_qual_patient_visit table for having bmi*/
         UPDATE isanteplus.health_qual_patient_visit pv, (
@@ -598,20 +663,21 @@ DELIMITER $$
 					 encounter_id,
 					 location_id,
 					 test_id,
-					 last_updated_date
+					 last_updated_date,
+					 voided
 					)
 					select distinct ob.person_id,
-					ob.encounter_id,ob.location_id,ob.value_coded, now()
+					ob.encounter_id,ob.location_id,ob.value_coded, now(), ob.voided
 					from openmrs.obs ob, openmrs.encounter enc, 
 					openmrs.encounter_type entype
 					where ob.encounter_id=enc.encounter_id
 					AND enc.encounter_type=entype.encounter_type_id
                     AND ob.concept_id=1271
-					AND ob.voided = 0
 					AND entype.uuid='f037e97b-471e-4898-a07c-b8e169e0ddc4'
 					on duplicate key update
 					encounter_id = ob.encounter_id,
-					last_updated_date = now();	
+					last_updated_date = now(),
+					voided = ob.voided;	
     /*update provider for patient_laboratory*/
 	update patient_laboratory lab, openmrs.encounter_provider enp
 	set lab.provider_id=enp.provider_id
@@ -671,10 +737,11 @@ insert into patient_tb_diagnosis
 					 patient_id,
 					 encounter_id,
 					 location_id,
-					 last_updated_date
+					 last_updated_date,
+					 voided
 					)
 					select distinct ob.person_id,
-						   ob.encounter_id,ob.location_id, now()
+						   ob.encounter_id,ob.location_id, now(), ob.voided
 					from openmrs.obs ob, openmrs.obs ob1
 					where ob.person_id=ob1.person_id
 					AND ob.encounter_id=ob1.encounter_id
@@ -683,60 +750,63 @@ insert into patient_tb_diagnosis
 					AND ((ob.concept_id=1284 AND ob.value_coded=112141)
 						OR
 						(ob.concept_id=1284 AND ob.value_coded=159345))
-					AND ob.voided = 0
 						on duplicate key update
 						encounter_id = ob.encounter_id,
-						last_updated_date = now();
+						last_updated_date = now(),
+						voided = ob.voided;
 /*Insert when Nouveau diagnostic Or suivi in the tuberculose menu are checked*/						
 insert into patient_tb_diagnosis
 					(
 						patient_id,
 						encounter_id,
 						location_id,
-						last_updated_date
+						last_updated_date,
+						voided
 					)
-			select distinct ob.person_id,ob.encounter_id,ob.location_id, now()
+			select distinct ob.person_id,ob.encounter_id,ob.location_id, now(), ob.voided
 			FROM openmrs.obs ob
 			where ob.concept_id=1659
 			AND (ob.value_coded=160567 OR ob.value_coded=1662)
-			AND ob.voided = 0
 			on duplicate key update
 			encounter_id = ob.encounter_id,
-			last_updated_date = now();
+			last_updated_date = now(),
+			voided = ob.voided;
 /*Insert when the area Toux >= 2 semaines is checked*/			
 insert into patient_tb_diagnosis
 					(
 						patient_id,
 						encounter_id,
 						location_id,
-						last_updated_date
+						last_updated_date, 
+						voided
 					)
-			select distinct ob.person_id,ob.encounter_id,ob.location_id, now()
+			select distinct ob.person_id,ob.encounter_id,ob.location_id, now(), ob.voided
 			FROM openmrs.obs ob
 			where ob.concept_id=159614
 			AND ob.value_coded=159799
-			AND ob.voided = 0
 			on duplicate key update
 			encounter_id = ob.encounter_id,
-			last_updated_date = now();
+			last_updated_date = now(),
+			voided = ob.voided;
 /*Insert when one of the status tb is checked on the resultat du traitement(tb) menu*/			
 insert into patient_tb_diagnosis
 					(
 						patient_id,
 						encounter_id,
 						location_id,
-						last_updated_date
+						last_updated_date,
+						voided
 					)
-			select distinct ob.person_id,ob.encounter_id,ob.location_id, now()
+			select distinct ob.person_id,ob.encounter_id,ob.location_id, now(), ob.voided
 			FROM openmrs.obs ob
 			where ob.concept_id=159786
 			AND (ob.value_coded=159791 OR ob.value_coded=160035
 				OR ob.value_coded=159874 OR ob.value_coded=160031
 				OR ob.value_coded=160034)
-			AND ob.voided = 0
 			on duplicate key update
 			encounter_id = ob.encounter_id,
-			last_updated_date = now();
+			last_updated_date = now(),
+			voided = ob.voided;
 /*Insert when the HIV patient has a TB diagnosis 
 (we will find these concepts particularly in the first and follow-up visits HIV forms)*/
 insert into patient_tb_diagnosis
@@ -744,17 +814,18 @@ insert into patient_tb_diagnosis
 						patient_id,
 						encounter_id,
 						location_id,
-						last_updated_date
+						last_updated_date,
+						voided
 					)
-			select distinct ob.person_id,ob.encounter_id,ob.location_id, now()
+			select distinct ob.person_id,ob.encounter_id,ob.location_id, now(), ob.voided
 			FROM openmrs.obs ob
 			where (ob.concept_id = 6042 OR ob.concept_id = 6097)
 			AND (ob.value_coded = 159355 OR ob.value_coded = 42 
 					OR ob.value_coded = 118890 OR ob.value_coded = 5042)
-			AND ob.voided = 0
 			on duplicate key update
 			encounter_id = ob.encounter_id,
-			last_updated_date = now();
+			last_updated_date = now(),
+			voided = ob.voided;
 /*update for visit_id AND visit_date*/ 
 update patient_tb_diagnosis pat, openmrs.visit vi, openmrs.encounter en
    set pat.visit_id=vi.visit_id, pat.visit_date=vi.date_started
@@ -899,8 +970,8 @@ update patient_tb_diagnosis pat, openmrs.obs ob
 	AND ob.voided = 0;
 
 		/*Insertion for patient_id, visit_id,encounter_id,visit_date for table patient_imagerie */
-insert into patient_imagerie (patient_id,location_id,visit_id,encounter_id,visit_date)
-	select distinct ob.person_id,ob.location_id,vi.visit_id, ob.encounter_id,vi.date_started
+insert into patient_imagerie (patient_id,location_id,visit_id,encounter_id,visit_date, voided)
+	select distinct ob.person_id,ob.location_id,vi.visit_id, ob.encounter_id,vi.date_started, vi.voided
 	from openmrs.obs ob, openmrs.encounter en, 
 	openmrs.encounter_type enctype, openmrs.visit vi
 	WHERE ob.encounter_id=en.encounter_id
@@ -909,7 +980,8 @@ insert into patient_imagerie (patient_id,location_id,visit_id,encounter_id,visit
 	AND(ob.concept_id=12 or ob.concept_id=309 or ob.concept_id=307)
 	AND enctype.uuid='a4cab59f-f0ce-46c3-bd76-416db36ec719'
 	on duplicate key update
-	visit_date = vi.date_started;
+	visit_date = vi.date_started,
+	voided = vi.voided;
 /*update radiographie_pul of table patient_imagerie*/
 update isanteplus.patient_imagerie patim, openmrs.obs ob
 set patim.radiographie_pul=ob.value_coded
@@ -982,49 +1054,49 @@ DELETE FROM discontinuation_reason
 	AND reason = 1667;
 /*Starting insertion for patient_prenancy table*/
 /*Patient_pregnancy insertion*/
-	INSERT INTO patient_pregnancy (patient_id,encounter_id,start_date,last_updated_date)
-	SELECT DISTINCT ob.person_id,ob.encounter_id,DATE(ob.obs_datetime) AS start_date, now()
+	INSERT INTO patient_pregnancy (patient_id,encounter_id,start_date,last_updated_date, voided)
+	SELECT DISTINCT ob.person_id,ob.encounter_id,DATE(ob.obs_datetime) AS start_date, now(), ob.voided
 	FROM openmrs.obs ob, openmrs.obs ob1
 	WHERE ob.obs_group_id=ob1.obs_id
 	AND ob.concept_id=1284
 	AND ob.value_coded IN (46,129251,132678,47,163751,1449,118245,129211,141631,158489,490,118744)
 	AND ob1.concept_id=159947
-	AND ob.voided = 0
 	on duplicate key update
 	start_date = start_date,
-	last_updated_date = now();
+	last_updated_date = now(),
+	voided = ob.voided;
 	/*AND ob.person_id NOT IN
 	(SELECT ppr.patient_id FROM isanteplus.patient_pregnancy ppr
 	WHERE ppr.end_date is null 
 	AND ppr.end_date < DATE(ob.obs_datetime))*/
 	/*Patient_pregnancy insertion for area Femme enceinte (Grossesse)*/
-	INSERT INTO patient_pregnancy (patient_id,encounter_id,start_date,last_updated_date)
-	SELECT ob.person_id,ob.encounter_id,DATE(ob.obs_datetime) AS start_date, now()
+	INSERT INTO patient_pregnancy (patient_id,encounter_id,start_date,last_updated_date, voided)
+	SELECT ob.person_id,ob.encounter_id,DATE(ob.obs_datetime) AS start_date, now(), ob.voided
 	FROM openmrs.obs ob
 	WHERE ob.concept_id=162225
 	AND ob.value_coded=1434
-	AND ob.voided = 0
 	on duplicate key update
 	start_date = start_date,
-	last_updated_date = now();
+	last_updated_date = now(),
+	voided = ob.voided;
 	
 	/*Patient_pregnancy insertion for area Conseils sur l’allaitement maternel
 	And Visite Domiciliaire AND Club des Mères Groupe de Support
 	AND Dispensation ARV AND Education Individuelle
 	*/
-	INSERT INTO patient_pregnancy (patient_id,encounter_id,start_date,last_updated_date)
-	SELECT ob.person_id,ob.encounter_id,DATE(ob.obs_datetime) AS start_date, now()
+	INSERT INTO patient_pregnancy (patient_id,encounter_id,start_date,last_updated_date, voided)
+	SELECT ob.person_id,ob.encounter_id,DATE(ob.obs_datetime) AS start_date, now(), ob.voided
 	FROM openmrs.obs ob
 	WHERE ob.concept_id = 1592
 	AND ob.value_coded IN (1910,162186,5486,5576,163106,1622)
-	AND ob.voided = 0
 	on duplicate key update
 	start_date = start_date,
-	last_updated_date = now();
+	last_updated_date = now(),
+	voided = ob.voided;
 	
 	/*Insertion in patient_pregnancy table where prenatale is checked in the OBGYN form*/
-	INSERT into patient_pregnancy(patient_id,encounter_id,start_date, last_updated_date)
-					select distinct ob.person_id,ob.encounter_id,DATE(enc.encounter_datetime) AS start_date,now()
+	INSERT into patient_pregnancy(patient_id,encounter_id,start_date, last_updated_date, voided)
+					select distinct ob.person_id,ob.encounter_id,DATE(enc.encounter_datetime) AS start_date,now(), ob.voided
 					from openmrs.obs ob, openmrs.encounter enc, 
 					openmrs.encounter_type ent
 					WHERE ob.encounter_id = enc.encounter_id
@@ -1032,13 +1104,13 @@ DELETE FROM discontinuation_reason
                     AND ob.concept_id = 160288
 					AND ob.value_coded = 1622
 					AND ent.uuid IN("5c312603-25c1-4dbe-be18-1a167eb85f97","49592bec-dd22-4b6c-a97f-4dd2af6f2171")
-					AND ob.voided = 0
 					on duplicate key update
 					start_date = start_date,
-					last_updated_date = now();
+					last_updated_date = now(),
+					voided = ob.voided;
 	/*Insertion in patient_pregnancy table where DPA is filled*/
-	INSERT into patient_pregnancy(patient_id,encounter_id,start_date,last_updated_date)
-					select distinct ob.person_id,ob.encounter_id,DATE(enc.encounter_datetime) AS start_date, now()
+	INSERT into patient_pregnancy(patient_id,encounter_id,start_date,last_updated_date, voided)
+					select distinct ob.person_id,ob.encounter_id,DATE(enc.encounter_datetime) AS start_date, now(), ob.voided
 					from openmrs.obs ob, openmrs.encounter enc, 
 					openmrs.encounter_type ent
 					WHERE ob.encounter_id = enc.encounter_id
@@ -1046,20 +1118,20 @@ DELETE FROM discontinuation_reason
                     AND ob.concept_id = 5596
 					AND (ob.value_datetime <> "" AND ob.value_datetime is not null)
 					AND ent.uuid IN("5c312603-25c1-4dbe-be18-1a167eb85f97","49592bec-dd22-4b6c-a97f-4dd2af6f2171")
-					AND ob.voided = 0
 					on duplicate key update
 					start_date = start_date,
-					last_updated_date = now();
+					last_updated_date = now(),
+					voided = ob.voided;
 	/*Patient_pregnancy insertion for areas B-HCG(positif),Test de Grossesse(positif) */
-	INSERT INTO patient_pregnancy(patient_id,encounter_id,start_date,last_updated_date)
-	SELECT ob.person_id,ob.encounter_id,DATE(ob.obs_datetime) AS start_date, now()
+	INSERT INTO patient_pregnancy(patient_id,encounter_id,start_date,last_updated_date, voided)
+	SELECT ob.person_id,ob.encounter_id,DATE(ob.obs_datetime) AS start_date, now(), ob.voided
 	FROM openmrs.obs ob
 	WHERE (ob.concept_id=1945 OR ob.concept_id=45)
 	AND ob.value_coded=703
-	AND ob.voided = 0
 	on duplicate key update
 	start_date = start_date,
-	last_updated_date = now();
+	last_updated_date = now(),
+	voided = ob.voided;
 	/*INSERTION in patient_pregnancy for area 
 		- (Si domicile et femme VIH positif : est-ce qu’il y a une
 		planification faite pour la prophylaxie ARV de l’enfant, AND Si domicile et femme VIH positif)
@@ -1067,44 +1139,44 @@ DELETE FROM discontinuation_reason
 		- AND Planification pour transition dans une Maison de Naissance
 		- AND Inscrite dans un Club des Mères
 	*/
-	INSERT INTO patient_pregnancy(patient_id,encounter_id,start_date,last_updated_date)
-	SELECT ob.person_id,ob.encounter_id,DATE(ob.obs_datetime) AS start_date, now()
+	INSERT INTO patient_pregnancy(patient_id,encounter_id,start_date,last_updated_date, voided)
+	SELECT ob.person_id,ob.encounter_id,DATE(ob.obs_datetime) AS start_date, now(), ob.voided
 	FROM openmrs.obs ob
 	WHERE ob.concept_id IN (163764,161007,163765,163766)
 	AND ob.value_coded = 1065
-	AND ob.voided = 0
 	on duplicate key update
 	start_date = start_date,
-	last_updated_date = now();
+	last_updated_date = now(),
+	voided = ob.voided;
 	/*Insertion in patient_pregnancy for area Changement dans la fréquence
 	et/ou intensité des mouvements foetaux*/
-	INSERT INTO patient_pregnancy(patient_id,encounter_id,start_date,last_updated_date)
-	SELECT ob.person_id,ob.encounter_id,DATE(ob.obs_datetime) AS start_date, now()
+	INSERT INTO patient_pregnancy(patient_id,encounter_id,start_date,last_updated_date, voided)
+	SELECT ob.person_id,ob.encounter_id,DATE(ob.obs_datetime) AS start_date, now(), ob.voided
 	FROM openmrs.obs ob
 	WHERE ob.concept_id = 159614
 	AND ob.value_coded IN (113377,159937)
-	AND ob.voided = 0
 	on duplicate key update
 	start_date = start_date,
-	last_updated_date = now();
+	last_updated_date = now(),
+	voided = ob.voided;
 	/*Insertion in patient_pregnancy table where a form travail et accouchement is filled*/
-	INSERT into patient_pregnancy(patient_id,encounter_id,start_date, end_date, last_updated_date)
+	INSERT into patient_pregnancy(patient_id,encounter_id,start_date, end_date, last_updated_date, voided)
 					select distinct ob.person_id,ob.encounter_id,(DATE(enc.encounter_datetime)- INTERVAL 9 MONTH) AS start_date,
-					DATE(enc.encounter_datetime) AS end_date, now()
+					DATE(enc.encounter_datetime) AS end_date, now(), ob.voided
 					from openmrs.obs ob, openmrs.encounter enc, 
 					openmrs.encounter_type ent
 					WHERE ob.encounter_id = enc.encounter_id
 					AND enc.encounter_type = ent.encounter_type_id
 					AND ent.uuid = "d95b3540-a39f-4d1e-a301-8ee0e03d5eab"
-					AND ob.voided = 0
 					on duplicate key update
 					start_date = start_date,
 					end_date = end_date,
-					last_updated_date = now();
+					last_updated_date = now(),
+					voided = ob.voided;
 	/*Insertion in patient_pregnancy table where (Date Probable d’accouchement)/ Lieu is filled
 	*/
-	INSERT into patient_pregnancy(patient_id,encounter_id,start_date,last_updated_date)
-					select distinct ob.person_id,ob.encounter_id,DATE(enc.encounter_datetime) AS start_date, now()
+	INSERT into patient_pregnancy(patient_id,encounter_id,start_date,last_updated_date, voided)
+					select distinct ob.person_id,ob.encounter_id,DATE(enc.encounter_datetime) AS start_date, now(), ob.voided
 					from openmrs.obs ob, openmrs.encounter enc, 
 					openmrs.encounter_type ent
 					WHERE ob.encounter_id = enc.encounter_id
@@ -1113,17 +1185,17 @@ DELETE FROM discontinuation_reason
 					AND ob.value_coded = 1589
 					AND (ob.comments is not null AND ob.comments <> "")
 					AND ent.uuid IN("5c312603-25c1-4dbe-be18-1a167eb85f97","49592bec-dd22-4b6c-a97f-4dd2af6f2171")
-					AND ob.voided = 0
 					on duplicate key update
 					start_date = start_date,
-					last_updated_date = now();
+					last_updated_date = now(),
+					voided = ob.voided;
 	/*Insertion in patient_pregnancy table where Suivi et planification/
 	- Semaine de Gestation is filled
 	- Rythme cardiaque fœtal is filled
 	- Hauteur utérine 
 	*/
-	INSERT into patient_pregnancy(patient_id,encounter_id,start_date,last_updated_date)
-					select distinct ob.person_id,ob.encounter_id,DATE(enc.encounter_datetime) AS start_date, now()
+	INSERT into patient_pregnancy(patient_id,encounter_id,start_date,last_updated_date, voided)
+					select distinct ob.person_id,ob.encounter_id,DATE(enc.encounter_datetime) AS start_date, now(), ob.voided
 					from openmrs.obs ob, openmrs.encounter enc, 
 					openmrs.encounter_type ent
 					WHERE ob.encounter_id = enc.encounter_id
@@ -1131,13 +1203,13 @@ DELETE FROM discontinuation_reason
                     AND ob.concept_id IN(1438,1440,1439)
 					AND ob.value_numeric > 0
 					AND ent.uuid IN("5c312603-25c1-4dbe-be18-1a167eb85f97","49592bec-dd22-4b6c-a97f-4dd2af6f2171")
-					AND ob.voided = 0
 					on duplicate key update
 					start_date = start_date,
-					last_updated_date = now();
+					last_updated_date = now(),
+					voided = ob.voided;
 	/*Patient_pregnancy - Insertion for Position*/
-	INSERT into patient_pregnancy(patient_id,encounter_id,start_date,last_updated_date)
-					select distinct ob.person_id,ob.encounter_id,DATE(enc.encounter_datetime) AS start_date, now()
+	INSERT into patient_pregnancy(patient_id,encounter_id,start_date,last_updated_date, voided)
+					select distinct ob.person_id,ob.encounter_id,DATE(enc.encounter_datetime) AS start_date, now(), ob.voided
 					from openmrs.obs ob, openmrs.encounter enc, 
 					openmrs.encounter_type ent
 					WHERE ob.encounter_id = enc.encounter_id
@@ -1145,13 +1217,13 @@ DELETE FROM discontinuation_reason
                     AND ob.concept_id = 163749
 					AND ob.value_coded IN (5141,5139)
 					AND ent.uuid IN("5c312603-25c1-4dbe-be18-1a167eb85f97","49592bec-dd22-4b6c-a97f-4dd2af6f2171")
-					AND ob.voided = 0
 					on duplicate key update
 					start_date = start_date,
-					last_updated_date = now();
+					last_updated_date = now(),
+					voided = ob.voided;
 	/*Patient_pregnancy - Insertion for Présentation*/
-	INSERT into patient_pregnancy(patient_id,encounter_id,start_date,last_updated_date)
-					select distinct ob.person_id,ob.encounter_id,DATE(enc.encounter_datetime) AS start_date, now()
+	INSERT into patient_pregnancy(patient_id,encounter_id,start_date,last_updated_date, voided)
+					select distinct ob.person_id,ob.encounter_id,DATE(enc.encounter_datetime) AS start_date, now(), ob.voided
 					from openmrs.obs ob, openmrs.encounter enc, 
 					openmrs.encounter_type ent
 					WHERE ob.encounter_id = enc.encounter_id
@@ -1159,13 +1231,13 @@ DELETE FROM discontinuation_reason
                     AND ob.concept_id = 160090
 					AND ob.value_coded IN (160001,139814,112259)
 					AND ent.uuid IN("5c312603-25c1-4dbe-be18-1a167eb85f97","49592bec-dd22-4b6c-a97f-4dd2af6f2171")
-					AND ob.voided = 0
 					on duplicate key update
 					start_date = start_date,
-					last_updated_date = now();
+					last_updated_date = now(),
+					voided = ob.voided;
 	/*Patient_pregnancy - Insertion for Position*/
-	INSERT into patient_pregnancy(patient_id,encounter_id,start_date,last_updated_date)
-					select distinct ob.person_id,ob.encounter_id,DATE(enc.encounter_datetime) AS start_date, now()
+	INSERT into patient_pregnancy(patient_id,encounter_id,start_date,last_updated_date, voided)
+					select distinct ob.person_id,ob.encounter_id,DATE(enc.encounter_datetime) AS start_date, now(), ob.voided
 					from openmrs.obs ob, openmrs.encounter enc, 
 					openmrs.encounter_type ent
 					WHERE ob.encounter_id = enc.encounter_id
@@ -1173,10 +1245,10 @@ DELETE FROM discontinuation_reason
                     AND ob.concept_id = 163750
 					AND ob.value_coded IN (163748,163747)
 					AND ent.uuid IN("5c312603-25c1-4dbe-be18-1a167eb85f97","49592bec-dd22-4b6c-a97f-4dd2af6f2171")
-					AND ob.voided = 0
 					on duplicate key update
 					start_date = start_date,
-					last_updated_date = now();
+					last_updated_date = now(),
+					voided = ob.voided;
 	/* Patient_pregnancy updated date_stop for area DPA: <obs conceptId="CIEL:5596"/>*/
 	UPDATE patient_pregnancy ppr,openmrs.obs ob
 	SET end_date=DATE(ob.value_datetime)
@@ -1215,50 +1287,137 @@ DELETE FROM discontinuation_reason
 /*Insertion for Nombre de patient sous ARV depuis 6 mois sans un résultat de charge virale*/
 	TRUNCATE TABLE alert;
 	INSERT INTO alert(patient_id,id_alert,encounter_id,date_alert)
-	SELECT pdis.patient_id,1,pdis.encounter_id,MAX(pdis.dispensation_date)
-	FROM patient_dispensing pdis, (SELECT arv.drug_id FROM arv_drugs arv) B
-	WHERE pdis.drug_id = B.drug_id
-	AND(TIMESTAMPDIFF(MONTH,pdis.dispensation_date,DATE(now()))>=6)
-	AND pdis.patient_id NOT IN (SELECT pl.patient_id FROM patient_laboratory pl
-			WHERE pl.test_id=856 AND pl.test_done=1 AND pl.test_result <> "")
-            GROUP BY pdis.patient_id;
-	/*Insertion for Nombre de femmes enceintes, sous ARV depuis 4 mois sans un résultat de charge virale*/
-	INSERT INTO alert(patient_id,id_alert,encounter_id,date_alert)
-	SELECT pdis.patient_id,2,pdis.encounter_id,MAX(pdis.dispensation_date)
-	FROM patient_dispensing pdis, patient_pregnancy pp, (SELECT arv.drug_id FROM arv_drugs arv) B
-	WHERE pdis.patient_id=pp.patient_id
-	AND pdis.drug_id = B.drug_id
-	AND(TIMESTAMPDIFF(MONTH,pdis.dispensation_date,DATE(now()))>=4)
-	AND pdis.patient_id NOT IN (SELECT pl.patient_id FROM patient_laboratory pl
-			WHERE pl.test_id=856 AND pl.test_done=1 AND pl.test_result <> "")
-            GROUP BY pdis.patient_id;
+	SELECT distinct B.patient_id,1,B.encounter_id, B.visit_date
+	FROM isanteplus.patient p,
+	(select pdis.patient_id, pdis.encounter_id as encounter_id, MIN(DATE(pdis.visit_date)) as visit_date 
+	FROM isanteplus.patient_dispensing pdis WHERE pdis.arv_drug = 1065 GROUP BY 1) B
+	WHERE p.patient_id = B.patient_id
+	AND p.date_started_arv = B.visit_date
+	AND (TIMESTAMPDIFF(MONTH,DATE(p.date_started_arv),DATE(now())) >= 6)
+	AND p.patient_id NOT IN(SELECT pl.patient_id FROM isanteplus.patient_laboratory pl
+			WHERE pl.test_id IN(856, 1305) AND pl.test_done=1 AND pl.voided <> 1 AND ((pl.test_result is not null) OR (pl.test_result <> '')))
+	AND p.patient_id NOT IN (select enc.patient_id FROM openmrs.encounter enc, openmrs.encounter_type et 
+				where enc.encounter_type = et.encounter_type_id AND et.uuid = '9d0113c6-f23a-4461-8428-7e9a7344f2ba'
+				AND enc.patient_id IN (select dr.patient_id FROM isanteplus.discontinuation_reason dr))
+	AND p.vih_status = 1;
+	/*Insertion for Nombre de femmes enceintes, sous ARV depuis 4 mois sans un résultat de charge virale*/		
+	INSERT INTO alert(patient_id,id_alert,encounter_id,date_alert)		
+	SELECT distinct B.patient_id,2,B.encounter_id, B.visit_date
+	FROM isanteplus.patient p,
+	(select pdis.patient_id, pdis.encounter_id as encounter_id, MIN(DATE(pdis.visit_date)) as visit_date 
+	FROM isanteplus.patient_dispensing pdis WHERE pdis.arv_drug = 1065 GROUP BY 1) B,
+	isanteplus.patient_pregnancy pp
+	WHERE p.patient_id = B.patient_id
+	AND p.date_started_arv = B.visit_date
+	AND p.patient_id = pp.patient_id
+	AND (TIMESTAMPDIFF(MONTH,DATE(p.date_started_arv),DATE(now())) >= 4)
+	AND p.patient_id NOT IN(SELECT pl.patient_id FROM isanteplus.patient_laboratory pl
+			WHERE pl.test_id IN(856, 1305) AND pl.test_done=1 AND pl.voided <> 1 AND ((pl.test_result is not null) OR (pl.test_result <> '')))
+	AND p.patient_id NOT IN (select enc.patient_id FROM openmrs.encounter enc, openmrs.encounter_type et 
+				where enc.encounter_type = et.encounter_type_id AND et.uuid = '9d0113c6-f23a-4461-8428-7e9a7344f2ba'
+				AND enc.patient_id IN (select dr.patient_id FROM isanteplus.discontinuation_reason dr))
+	AND p.vih_status = 1;
 	/*Insertion for Nombre de patients ayant leur dernière charge virale remontant à au moins 12 mois*/
-	INSERT INTO alert(patient_id,id_alert,encounter_id,date_alert)
-            SELECT pl.patient_id,3,pl.encounter_id,MAX(pl.visit_date)
-			FROM patient_laboratory pl INNER JOIN patient p
-			ON p.patient_id=pl.patient_id
-			WHERE pl.test_id=856 AND pl.test_done=1 AND pl.test_result <> ""
-			AND(TIMESTAMPDIFF(MONTH,DATE(pl.visit_date),DATE(now()))>=12)
-			AND p.vih_status=1
-			AND p.patient_id NOT IN (SELECT plab.patient_id FROM patient_laboratory plab,
-			             patient pa WHERE plab.patient_id=pa.patient_id
-						 AND plab.test_id=844 AND plab.test_result=1302
-						 AND (TIMESTAMPDIFF(YEAR,DATE(p.birthdate),DATE(now()))<=14))
-			GROUP BY pl.patient_id;
+	INSERT INTO alert(patient_id,id_alert,encounter_id,date_alert)		
+	SELECT distinct plab.patient_id,3,plab.encounter_id, ifnull(DATE(plab.date_test_done),DATE(plab.visit_date))
+	FROM isanteplus.patient p, isanteplus.patient_laboratory plab,
+	(SELECT pl.patient_id, MAX(ifnull(DATE(date_test_done),DATE(pl.visit_date))) as visit_date FROM isanteplus.patient_laboratory pl
+			WHERE pl.test_id IN(856, 1305) AND pl.test_done=1 AND pl.voided <> 1 
+			AND ((pl.test_result is not null) OR (pl.test_result <> '')) GROUP BY 1) C,
+			isanteplus.patient_on_arv parv
+	WHERE p.patient_id = plab.patient_id
+	AND plab.patient_id = C.patient_id
+	AND ifnull(DATE(plab.date_test_done),DATE(plab.visit_date)) = C.visit_date
+	AND p.patient_id = parv.patient_id
+	AND (TIMESTAMPDIFF(MONTH,DATE(C.visit_date),DATE(now())) >= 12)
+	AND p.patient_id NOT IN (select enc.patient_id FROM openmrs.encounter enc, openmrs.encounter_type et 
+				where enc.encounter_type = et.encounter_type_id AND et.uuid = '9d0113c6-f23a-4461-8428-7e9a7344f2ba'
+				AND enc.patient_id IN (select dr.patient_id FROM isanteplus.discontinuation_reason dr))
+	AND p.vih_status = 1;
 	/*Insertion for Nombre de patients ayant leur dernière charge virale remontant à au moins 3 mois et dont le résultat était > 1000 copies/ml*/
+	INSERT INTO alert(patient_id,id_alert,encounter_id,date_alert)		
+	SELECT distinct plab.patient_id,4,plab.encounter_id, ifnull(DATE(plab.date_test_done),DATE(plab.visit_date))
+	FROM isanteplus.patient p, isanteplus.patient_laboratory plab,
+	(SELECT pl.patient_id, MAX(ifnull(DATE(date_test_done),DATE(pl.visit_date))) as visit_date FROM isanteplus.patient_laboratory pl
+			WHERE pl.test_id IN(856, 1305) AND pl.test_done=1 AND pl.voided <> 1 
+			AND ((pl.test_result is not null) OR (pl.test_result <> '')) GROUP BY 1) C,
+			isanteplus.patient_on_arv parv
+	WHERE p.patient_id = plab.patient_id
+	AND plab.patient_id = C.patient_id
+	AND ifnull(DATE(plab.date_test_done),DATE(plab.visit_date)) = C.visit_date
+	AND p.patient_id = parv.patient_id
+	AND (TIMESTAMPDIFF(MONTH,DATE(C.visit_date),DATE(now())) > 3)
+	AND plab.test_result > 1000
+	AND p.patient_id NOT IN (select enc.patient_id FROM openmrs.encounter enc, openmrs.encounter_type et 
+				where enc.encounter_type = et.encounter_type_id AND et.uuid = '9d0113c6-f23a-4461-8428-7e9a7344f2ba'
+				AND enc.patient_id IN (select dr.patient_id FROM isanteplus.discontinuation_reason dr))
+	AND p.vih_status = 1;
+	
+	/*patient avec une dernière charge viral >1000 copies/ml*/
+	INSERT INTO alert(patient_id,id_alert,encounter_id,date_alert)		
+	SELECT distinct plab.patient_id,5,plab.encounter_id, ifnull(DATE(plab.date_test_done),DATE(plab.visit_date))
+	FROM isanteplus.patient p, isanteplus.patient_laboratory plab,
+	(SELECT pl.patient_id, MAX(ifnull(DATE(date_test_done),DATE(pl.visit_date))) as visit_date FROM isanteplus.patient_laboratory pl
+			WHERE pl.test_id IN(856, 1305) AND pl.test_done=1 AND pl.voided <> 1 
+			AND ((pl.test_result is not null) OR (pl.test_result <> '')) GROUP BY 1) C,
+			isanteplus.patient_on_arv parv
+	WHERE p.patient_id = plab.patient_id
+	AND plab.patient_id = C.patient_id
+	AND ifnull(DATE(plab.date_test_done),DATE(plab.visit_date)) = C.visit_date
+	AND p.patient_id = parv.patient_id
+	AND plab.test_result > 1000
+	AND p.patient_id NOT IN (select enc.patient_id FROM openmrs.encounter enc, openmrs.encounter_type et 
+				where enc.encounter_type = et.encounter_type_id AND et.uuid = '9d0113c6-f23a-4461-8428-7e9a7344f2ba'
+				AND enc.patient_id IN (select dr.patient_id FROM isanteplus.discontinuation_reason dr))
+	AND p.vih_status = 1;
+	
+	/*Tout patient dont la prochaine date de dispensation (next_disp) arrive dans les 30 
+	prochains jours par rapport à la date de consultation actuelle*/
+	
 	INSERT INTO alert(patient_id,id_alert,encounter_id,date_alert)
-            SELECT pl.patient_id,4,pl.encounter_id,MAX(pl.visit_date)
-			FROM patient_laboratory pl INNER JOIN patient p
-			ON p.patient_id=pl.patient_id
-			WHERE pl.test_id=856 AND pl.test_done=1
-			AND(TIMESTAMPDIFF(MONTH,DATE(pl.visit_date),DATE(now()))>=3)
-			AND pl.test_result > 1000
-			AND p.vih_status=1
-			AND p.patient_id NOT IN (SELECT plab.patient_id FROM patient_laboratory plab,
-			             patient pa WHERE plab.patient_id=pa.patient_id
-						 AND plab.test_id=844 AND plab.test_result=1302
-						 AND (TIMESTAMPDIFF(YEAR,DATE(p.birthdate),DATE(now()))<=14))
-			GROUP BY pl.patient_id;
+	SELECT distinct pdisp.patient_id,7,pdisp.encounter_id, DATE(pdisp.visit_date)
+	FROM isanteplus.patient p, isanteplus.patient_dispensing pdisp,
+	(SELECT pd.patient_id, MAX(pd.next_dispensation_date) as next_dispensation_date 
+	FROM isanteplus.patient_dispensing pd WHERE pd.arv_drug = 1065 AND 
+	(pd.rx_or_prophy <> 163768 OR pd.rx_or_prophy is null) AND pd.voided <> 1 GROUP BY 1) B
+	WHERE p.patient_id = pdisp.patient_id
+	AND pdisp.patient_id = B.patient_id
+	AND pdisp.next_dispensation_date = B.next_dispensation_date
+	AND DATEDIFF(pdisp.next_dispensation_date,now()) between 0 and 30
+	AND p.patient_id NOT IN (select enc.patient_id FROM openmrs.encounter enc, openmrs.encounter_type et 
+				where enc.encounter_type = et.encounter_type_id AND et.uuid = '9d0113c6-f23a-4461-8428-7e9a7344f2ba'
+				AND enc.patient_id IN (select dr.patient_id FROM isanteplus.discontinuation_reason dr));
+	
+	/*Tout patient dont la prochaine date de dispensation (next_disp) se situe 
+	dans le passe par rapport à la date de consultation actuelle*/
+	
+	INSERT INTO alert(patient_id,id_alert,encounter_id,date_alert)
+	SELECT distinct pdisp.patient_id,7,pdisp.encounter_id, DATE(pdisp.visit_date)
+	FROM isanteplus.patient p, isanteplus.patient_dispensing pdisp,
+	(SELECT pd.patient_id, MAX(pd.next_dispensation_date) as next_dispensation_date 
+	FROM isanteplus.patient_dispensing pd WHERE pd.arv_drug = 1065 AND 
+	(pd.rx_or_prophy <> 163768 OR pd.rx_or_prophy is null) AND pd.voided <> 1 GROUP BY 1) B
+	WHERE p.patient_id = pdisp.patient_id
+	AND pdisp.patient_id = B.patient_id
+	AND pdisp.next_dispensation_date = B.next_dispensation_date
+	AND DATEDIFF(B.next_dispensation_date,now()) < 0
+	AND p.patient_id NOT IN (select enc.patient_id FROM openmrs.encounter enc, openmrs.encounter_type et 
+				where enc.encounter_type = et.encounter_type_id AND et.uuid = '9d0113c6-f23a-4461-8428-7e9a7344f2ba');
+	
+	/*patients sous ARV depuis 5 mois sans un résultat de charge virale*/
+	INSERT INTO alert(patient_id,id_alert,encounter_id,date_alert)
+	SELECT distinct B.patient_id,8,B.encounter_id, B.visit_date
+	FROM isanteplus.patient p,
+	(select pdis.patient_id, pdis.encounter_id as encounter_id, MIN(DATE(pdis.visit_date)) as visit_date 
+	FROM isanteplus.patient_dispensing pdis WHERE pdis.arv_drug = 1065 GROUP BY 1) B
+	WHERE p.patient_id = B.patient_id
+	AND p.date_started_arv = B.visit_date
+	AND (TIMESTAMPDIFF(MONTH,DATE(p.date_started_arv),DATE(now())) = 5)
+	AND p.patient_id NOT IN(SELECT pl.patient_id FROM isanteplus.patient_laboratory pl
+			WHERE pl.test_id IN(856, 1305) AND pl.test_done=1 AND pl.voided <> 1 AND ((pl.test_result is not null) OR (pl.test_result <> '')))
+	AND p.patient_id NOT IN (select enc.patient_id FROM openmrs.encounter enc, openmrs.encounter_type et 
+				where enc.encounter_type = et.encounter_type_id AND et.uuid = '9d0113c6-f23a-4461-8428-7e9a7344f2ba')
+	AND p.vih_status = 1;
 /*Ending insertion for alert*/
 /*Part of patient_diagnosis*/
 	/*insertion of all diagnosis in the table patient_diagnosis*/
@@ -1270,19 +1429,20 @@ INSERT into patient_diagnosis
 					 concept_group,
 					 obs_group_id,
 					 concept_id,
-					 answer_concept_id
+					 answer_concept_id,
+					 voided
 					)
 					select distinct ob.person_id,ob.encounter_id,
-					ob.location_id,ob1.concept_id,ob.obs_group_id,ob.concept_id, ob.value_coded
+					ob.location_id,ob1.concept_id,ob.obs_group_id,ob.concept_id, ob.value_coded, ob.voided
 					from openmrs.obs ob, openmrs.obs ob1
 					where ob.person_id=ob1.person_id
 					AND ob.encounter_id=ob1.encounter_id
 					AND ob.obs_group_id=ob1.obs_id
                     AND ob1.concept_id=159947	
 					AND ob.concept_id=1284
-					AND ob.voided = 0
 					on duplicate key update
-					encounter_id = ob.encounter_id;
+					encounter_id = ob.encounter_id,
+					voided = ob.voided;
 	/*update patient diagnosis for suspected_confirmed area*/					
 	update patient_diagnosis pdiag, openmrs.obs ob, 
 	openmrs.obs ob1
@@ -1315,16 +1475,17 @@ INSERT into patient_diagnosis
 Gynécologique=160456,Prénatale=1622,Postnatale=1623,Planification familiale=5483
 */
 INSERT INTO visit_type(patient_id,encounter_id,location_id,
-visit_id,concept_id,v_type,encounter_date)
+visit_id,concept_id,v_type,encounter_date, last_updated_date, voided)
 SELECT ob.person_id, ob.encounter_id,ob.location_id, enc.visit_id,
- ob.concept_id,ob.value_coded, DATE(enc.encounter_datetime)
+ ob.concept_id,ob.value_coded, DATE(enc.encounter_datetime), now(), ob.voided
  FROM openmrs.obs ob, openmrs.encounter enc
  WHERE ob.encounter_id=enc.encounter_id
  AND ob.concept_id=160288
  AND ob.value_coded IN (160456,1622,1623,5483)
- AND ob.voided = 0
  on duplicate key update
- encounter_id = ob.encounter_id;
+ encounter_id = ob.encounter_id,
+ last_updated_date = now(),
+ voided = ob.voided;
 /*End part of visit_type*/
 /*Part of patient_delivery table*/
 /* Insertion for table patient_delivery */
@@ -1334,10 +1495,12 @@ SELECT ob.person_id, ob.encounter_id,ob.location_id, enc.visit_id,
 					 encounter_id,
 					 location_id,
 					 delivery_location,
-					 encounter_date
+					 encounter_date,
+					 last_updated_date,
+					 voided
 					)
 					select distinct ob.person_id,ob.encounter_id,
-					ob.location_id,ob.value_coded, DATE(enc.encounter_datetime)
+					ob.location_id,ob.value_coded, DATE(enc.encounter_datetime), now(), ob.voided
 					from openmrs.obs ob, openmrs.encounter enc, 
 					openmrs.encounter_type ent
 					WHERE ob.encounter_id=enc.encounter_id
@@ -1345,9 +1508,10 @@ SELECT ob.person_id, ob.encounter_id,ob.location_id, enc.visit_id,
                     AND ob.concept_id=1572
 					AND ob.value_coded IN(163266,1501,1502,5622)
 					AND ent.uuid="d95b3540-a39f-4d1e-a301-8ee0e03d5eab"
-					AND ob.voided = 0
 					on duplicate key update
-					delivery_location = ob.value_coded;
+					delivery_location = ob.value_coded,
+					last_updated_date = now(),
+					voided = ob.voided;
 
 	update patient_delivery pdel, openmrs.obs ob
 	 SET pdel.delivery_date=ob.value_datetime
@@ -1368,10 +1532,11 @@ INSERT into virological_tests
 					 obs_group_id,
 					 test_id,
 					 answer_concept_id,
-					 last_updated_date
+					 last_updated_date,
+					 voided
 					)
 					select distinct ob.person_id,ob.encounter_id,
-					ob.location_id,ob1.concept_id,ob.obs_group_id,ob.concept_id, ob.value_coded, now()
+					ob.location_id,ob1.concept_id,ob.obs_group_id,ob.concept_id, ob.value_coded, now(), ob.voided
 					from openmrs.obs ob, openmrs.obs ob1
 					where ob.person_id=ob1.person_id
 					AND ob.encounter_id=ob1.encounter_id
@@ -1379,10 +1544,10 @@ INSERT into virological_tests
                     AND ob1.concept_id=1361	
 					AND ob.concept_id=162087
 					AND ob.value_coded=1030
-					AND ob.voided = 0
 					on duplicate key update
 					encounter_id = ob.encounter_id,
-					last_updated_date = now();
+					last_updated_date = now(),
+					voided = ob.voided;
 	
 	/*Update for area test_result for PCR*/
 	update virological_tests vtests, openmrs.obs ob
@@ -1435,10 +1600,11 @@ INSERT into virological_tests
 					 patient_id,
 					 encounter_id,
 					 location_id,
-					 encounter_date
+					 encounter_date,
+					 voided
 					)
 					select distinct ob.person_id,ob.encounter_id,
-					ob.location_id,DATE(enc.encounter_datetime)
+					ob.location_id,DATE(enc.encounter_datetime), ob.voided
 					from openmrs.obs ob, openmrs.encounter enc, 
 					openmrs.encounter_type ent
 					WHERE ob.encounter_id=enc.encounter_id
@@ -1446,9 +1612,9 @@ INSERT into virological_tests
                     AND ob.concept_id IN(163776,5665,1401)
 					AND (ent.uuid="349ae0b4-65c1-4122-aa06-480f186c8350"
 						OR ent.uuid="33491314-c352-42d0-bd5d-a9d0bffc9bf1")
-						AND ob.voided = 0
 						on duplicate key update
-						encounter_id = ob.encounter_id;
+						encounter_id = ob.encounter_id,
+						voided = ob.voided;
 /*update for ptme*/
 	update pediatric_hiv_visit pv, openmrs.obs ob
 	 SET pv.ptme=ob.value_coded
@@ -1480,10 +1646,11 @@ INSERT into virological_tests
 					 encounter_id,
 					 location_id,
 					 encounter_date,
-					 last_updated_date
+					 last_updated_date,
+					 voided
 					)
 					select distinct ob.person_id,ob.encounter_id,
-					ob.location_id,DATE(enc.encounter_datetime), now()
+					ob.location_id,DATE(enc.encounter_datetime), now(), ob.voided
 					from openmrs.obs ob, openmrs.encounter enc, 
 					openmrs.encounter_type ent
 					WHERE ob.encounter_id=enc.encounter_id
@@ -1491,10 +1658,10 @@ INSERT into virological_tests
                     AND ob.concept_id IN(163732,160597,1427)
 					AND (ent.uuid="5c312603-25c1-4dbe-be18-1a167eb85f97"
 						OR ent.uuid="49592bec-dd22-4b6c-a97f-4dd2af6f2171")
-					AND ob.voided = 0
-						on duplicate key update
+					on duplicate key update
 						encounter_id = ob.encounter_id,
-						last_updated_date = now();
+						last_updated_date = now(),
+						voided = ob.voided;
 	/*Update table patient_menstruation for having the 
 	DDR (DATE de Derniere Regle) value date*/
 	update patient_menstruation pm, openmrs.obs ob
@@ -1514,23 +1681,24 @@ INSERT into virological_tests
 					 location_id,
 					 risk_factor,
 					 encounter_date,
-					 last_updated_date
+					 last_updated_date,
+					 voided
 					)
 					select distinct ob.person_id,ob.encounter_id,
 					ob.location_id,ob.value_coded,
-					DATE(enc.encounter_datetime), now()
+					DATE(enc.encounter_datetime), now(), ob.voided
 					from openmrs.obs ob, openmrs.encounter enc, 
 					openmrs.encounter_type ent
 					WHERE ob.encounter_id=enc.encounter_id
 					AND enc.encounter_type=ent.encounter_type_id
                     AND ob.concept_id IN(1061,160581)
 					AND ob.value_coded IN (163290,163291,105,1063,163273,163274,163289,163275,5567,159218)
-					AND ob.voided = 0
 					AND ent.uuid IN('17536ba6-dd7c-4f58-8014-08c7cb798ac7',
 						'349ae0b4-65c1-4122-aa06-480f186c8350')
 						on duplicate key update
 						encounter_id = ob.encounter_id,
-						last_updated_date = now();
+						last_updated_date = now(),
+						voided = ob.voided;
 	
 	/*Insertion for risks factor for other risks*/
 	insert into vih_risk_factor
@@ -1540,23 +1708,24 @@ INSERT into virological_tests
 					 location_id,
 					 risk_factor,
 					 encounter_date,
-					 last_updated_date
+					 last_updated_date,
+					 voided
 					)
 					select distinct ob.person_id,ob.encounter_id,
 					ob.location_id,ob.concept_id,
-					DATE(enc.encounter_datetime), now()
-					from openmrs.obs ob, openmrs.encounter enc, 
+					DATE(enc.encounter_datetime), now(), ob.voided
+					from openmrs.obs ob, openmrs.encounter enc,
 					openmrs.encounter_type ent
 					WHERE ob.encounter_id=enc.encounter_id
 					AND enc.encounter_type=ent.encounter_type_id
                     AND ob.concept_id IN(123160,156660,163276,163278,160579,160580)
 					AND ob.value_coded = 1065
-					AND ob.voided = 0
 					AND ent.uuid IN('17536ba6-dd7c-4f58-8014-08c7cb798ac7',
 						'349ae0b4-65c1-4122-aa06-480f186c8350')
 					on duplicate key update
 					encounter_id = ob.encounter_id,
-					last_updated_date = now();
+					last_updated_date = now(),
+					voided = ob.voided;
 						
 		/*End of insertion for vih_risk_factor*/
 	
@@ -1568,16 +1737,17 @@ INSERT into virological_tests
         patient_id,
         encounter_id,
         encounter_date,
-        location_id
+        location_id,
+		voided
       )
-      SELECT DISTINCT ob.person_id, ob.encounter_id, enc.encounter_datetime, ob.location_id
+      SELECT DISTINCT ob.person_id, ob.encounter_id, enc.encounter_datetime, ob.location_id, ob.voided
       FROM openmrs.obs ob, openmrs.encounter enc, openmrs.encounter_type ent
       WHERE ob.encounter_id=enc.encounter_id
         AND enc.encounter_type=ent.encounter_type_id
         AND ob.concept_id=984
-		AND ob.voided = 0
 		on duplicate key update
-		encounter_id = ob.encounter_id;
+		encounter_id = ob.encounter_id,
+		voided = ob.voided;
 
       /*Create temporary table for query vaccination dates*/
       CREATE TABLE temp_vaccination (
@@ -1728,10 +1898,11 @@ INSERT into virological_tests
 					 obs_group_id,
 					 test_id,
 					 answer_concept_id,
-					 last_updated_date
+					 last_updated_date,
+					 voided
 					)
 					select distinct ob.person_id,ob.encounter_id,
-					ob.location_id,ob1.concept_id,ob.obs_group_id,ob.concept_id, ob.value_coded, now()
+					ob.location_id,ob1.concept_id,ob.obs_group_id,ob.concept_id, ob.value_coded, now(), ob.voided
 					from openmrs.obs ob, openmrs.obs ob1
 					where ob.person_id=ob1.person_id
 					AND ob.encounter_id=ob1.encounter_id
@@ -1739,10 +1910,10 @@ INSERT into virological_tests
                     AND ob1.concept_id=1361	
 					AND ob.concept_id=162087
 					AND ob.value_coded IN(163722,1042)
-					AND ob.voided = 0
 					on duplicate key update
 					encounter_id = ob.encounter_id,
-					last_updated_date = now();
+					last_updated_date = now(),
+					voided = ob.voided;
 	
 	/*Update for area test_result for tests serologiques*/
 	update serological_tests stests, openmrs.obs ob
@@ -1809,52 +1980,25 @@ INSERT into virological_tests
 	END$$
 DELIMITER ;
 
-DROP EVENT if exists isanteplus_patient_event;
-	CREATE EVENT if not exists isanteplus_patient_event
-	ON SCHEDULE EVERY 35 MINUTE
-	 STARTS now()
-		DO
-		call isanteplusreports_patient_dml();
-		
-	DROP EVENT if exists isanteplus_visit_event;
-	CREATE EVENT if not exists isanteplus_visit_event
-	ON SCHEDULE EVERY 50 MINUTE
-	 STARTS now()
-		DO
-		call isanteplusreports_patient_visit_dml();
-	
-	DROP EVENT if exists patient_prescription_event;
-	CREATE EVENT if not exists patient_prescription_event
-	ON SCHEDULE EVERY 55 MINUTE
-	 STARTS now()
-		DO
-		call isanteplus_prescription_dml();
-	
-	DROP EVENT if exists patient_dispensation_event;
-	CREATE EVENT if not exists patient_dispensation_event
-	ON SCHEDULE EVERY 45 MINUTE
-	 STARTS now() + INTERVAL 3 MINUTE
-		DO
-		call isanteplus_dispensation_dml();
-		
-	DROP EVENT if exists isanteplus_health_qual_event;
-	CREATE EVENT if not exists isanteplus_health_qual_event
-	ON SCHEDULE EVERY 3 HOUR
-	 STARTS now() + INTERVAL 20 MINUTE
-		DO
-		call isanteplusreports_health_qual_dml();
-		
-	DROP EVENT if exists patient_laboratory_event;
-	CREATE EVENT if not exists patient_laboratory_event
-	ON SCHEDULE EVERY 1 HOUR
-	 STARTS now()
-		DO
-		call patient_laboratory_dml();
-	
+	DELIMITER $$
+		DROP PROCEDURE IF EXISTS calling_all_procedures$$
+		CREATE PROCEDURE calling_all_procedures()
+		BEGIN
+			call isanteplusreports_patient_dml();
+			call isanteplusreports_patient_visit_dml();
+			call isanteplus_prescription_dml();
+			call isanteplus_dispensation_dml();
+			call patient_laboratory_dml();
+			call isanteplusreports_dml();
+			call isanteplusreports_health_qual_dml();
+		END$$
+	DELIMITER ;
 
-DROP EVENT if exists isanteplusreports_dml_event;
-	CREATE EVENT if not exists isanteplusreports_dml_event
-	ON SCHEDULE EVERY 1 HOUR
-	 STARTS now()
-		DO
-		call isanteplusreports_dml();
+	/*call calling_all_procedures();*/
+	
+	DROP EVENT if exists isanteplus_patient_dml_event;
+	CREATE EVENT if not exists isanteplus_patient_dml_event
+	ON SCHEDULE EVERY 4 HOUR
+	STARTS now()
+	DO
+	call calling_all_procedures();

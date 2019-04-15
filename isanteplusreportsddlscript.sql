@@ -164,6 +164,7 @@ VALUES(70056,'Abacavir(ABC)', DATE(now())),
 	  (165085,'Dolutegravir(DTG)', DATE(now())),
 	  (165093,'Elviltegravir(EVG)', DATE(now())),
 	  (80487,'Nelfinavir (NFV)', DATE(now())),
+	  (159810,'Etravirine(ETV)', DATE(now())),
 	  (83690,'Saquinavir (SQV)', DATE(now()));
 
 /*Table that contains the labels of ARV status*/
@@ -311,7 +312,15 @@ CREATE TABLE IF NOT EXISTS patient_prescription (
 	(1,'Nombre de patient sous ARV depuis 6 mois sans un résultat de charge virale',DATE(now())),
 	(2,'Nombre de femmes enceintes, sous ARV depuis 4 mois sans un résultat de charge virale',DATE(now())),
 	(3,'Nombre de patients ayant leur dernière charge virale remontant à au moins 12 mois',DATE(now())),
-	(4,'Nombre de patients ayant leur dernière charge virale remontant à au moins 3 mois et dont le résultat était > 1000 copies/ml',DATE(now()));
+	(4,'Nombre de patients ayant leur dernière charge virale remontant à au moins 3 mois et dont le résultat était > 1000 copies/ml',DATE(now())),
+	(5,'Patient avec une dernière charge viral >1000 copies/ml',DATE(now())),
+	(6,'Tout patient dont la prochaine date de dispensation (next_disp) arrive dans les 30 
+	prochains jours par rapport à la date de consultation actuelle',DATE(now())),
+	(7,'Tout patient dont la prochaine date de dispensation (next_disp) se situe 
+	dans le passe par rapport à la date de consultation actuelle',DATE(now())),
+	(8,'Patients sous ARV depuis 5 mois sans un résultat de charge virale',DATE(now()));
+	
+	
 	/*Create table alert*/
 	DROP TABLE IF EXISTS alert;
 	CREATE TABLE IF NOT EXISTS alert(
@@ -635,7 +644,7 @@ insert into regimen(regID,regimenName,drugID1,drugID2,drugID3,shortName,regGroup
 insert into regimen(regID,regimenName,drugID1,drugID2,drugID3,shortName,regGroup) values(116,'2nd',70056,78643,159809,'ABC-3TC-ATV/r','2nd');
 insert into regimen(regID,regimenName,drugID1,drugID2,drugID3,shortName,regGroup) values(117,'1stReg',84795,78643,165085,'TNF-3TC-DTG','1stReg');
 insert into regimen(regID,regimenName,drugID1,drugID2,drugID3,shortName,regGroup) values(118,'2nd',70056,78643,74258,'ABC-3TC-DRV/r','1stReg');
-insert into regimen(regID,regimenName,drugID1,drugID2,drugID3,shortName,regGroup) values(119,'3rd',74258,165085,'90','DRV-DTG-ETV','3rd');
+insert into regimen(regID,regimenName,drugID1,drugID2,drugID3,shortName,regGroup) values(119,'3rd',74258,165085,159810,'DRV-DTG-ETV','3rd');
 insert into regimen(regID,regimenName,drugID1,drugID2,drugID3,shortName,regGroup) values(120,'1stReg',630,165085,'0','AZT-3TC-DTG','1stReg');
 insert into regimen(regID,regimenName,drugID1,drugID2,drugID3,shortName,regGroup) values(121,'1stReg',70056,78643,165085,'ABC-3TC-DTG','1stReg');
 
@@ -653,3 +662,93 @@ CREATE TABLE IF NOT EXISTS `openmrs.isanteplus_patient_arv` (
 
 	
 GRANT SELECT ON isanteplus.* TO 'openmrs_user'@'localhost';
+
+
+DELIMITER $$
+	DROP PROCEDURE IF EXISTS isanteplus.set_scheduler_and_lock_wait_variable$$
+	CREATE PROCEDURE isanteplus.set_scheduler_and_lock_wait_variable()
+	BEGIN
+			SET GLOBAL event_scheduler = 1 ;
+			SET innodb_lock_wait_timeout = 250;
+    
+    END$$
+	DELIMITER ;
+
+GRANT EXECUTE ON PROCEDURE isanteplus.set_scheduler_and_lock_wait_variable TO 'openmrs_user'@'localhost';
+
+/*Adding column voided for all the table*/
+ALTER TABLE isanteplus.patient
+ADD COLUMN voided tinyint(1);
+
+ALTER TABLE isanteplus.patient_visit
+ADD COLUMN voided tinyint(1);
+
+ALTER TABLE isanteplus.patient_tb_diagnosis
+ADD COLUMN voided tinyint(1);
+
+ALTER TABLE isanteplus.patient_dispensing
+ADD COLUMN voided tinyint(1);
+
+ALTER TABLE isanteplus.patient_imagerie
+ADD COLUMN voided tinyint(1);
+
+ALTER TABLE isanteplus.patient_on_arv
+ADD COLUMN voided tinyint(1);
+
+ALTER TABLE isanteplus.patient_prescription
+ADD COLUMN voided tinyint(1);
+
+ALTER TABLE isanteplus.patient_laboratory
+ADD COLUMN voided tinyint(1);
+
+ALTER TABLE isanteplus.patient_pregnancy
+ADD COLUMN voided tinyint(1);
+
+ALTER TABLE isanteplus.patient_diagnosis
+ADD COLUMN voided tinyint(1);
+
+ALTER TABLE isanteplus.visit_type
+ADD COLUMN voided tinyint(1);
+
+ALTER TABLE isanteplus.virological_tests
+ADD COLUMN voided tinyint(1);
+
+ALTER TABLE isanteplus.patient_delivery
+ADD COLUMN voided tinyint(1);
+
+ALTER TABLE isanteplus.pediatric_hiv_visit
+ADD COLUMN voided tinyint(1);
+
+ALTER TABLE isanteplus.patient_menstruation
+ADD COLUMN voided tinyint(1);
+
+ALTER TABLE isanteplus.vih_risk_factor
+ADD COLUMN voided tinyint(1);
+
+ALTER TABLE isanteplus.vaccination
+ADD COLUMN voided tinyint(1);
+
+ALTER TABLE isanteplus.health_qual_patient_visit
+ADD COLUMN voided tinyint(1);
+
+ALTER TABLE isanteplus.serological_tests
+ADD COLUMN voided tinyint(1);
+
+ALTER TABLE isanteplus.patient_status_arv
+ADD COLUMN date_started_status datetime;
+
+ALTER TABLE isanteplus.patient_status_arv
+ADD COLUMN encounter_id INT(11) AFTER start_date;
+
+ALTER TABLE isanteplus.patient_prescription
+ADD COLUMN dispensation_date DATE AFTER drug_id;
+
+ALTER TABLE isanteplus.patient_prescription
+ADD COLUMN number_day_dispense INT(11) AFTER number_day;
+
+ALTER TABLE isanteplus.patient_prescription
+ADD COLUMN pills_amount_dispense INT(11) AFTER number_day_dispense;
+
+
+
+
