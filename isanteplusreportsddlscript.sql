@@ -528,6 +528,34 @@ CREATE TABLE if not exists pepfarTable (
 	CONSTRAINT pk_pepfarTable_primary_key PRIMARY KEY (location_id, patient_id, visit_date, regimen)
 	);
 
+/*table for malaria survaillance*/
+DROP TABLE if exists patient_malaria;
+CREATE TABLE patient_malaria (
+	patient_id int(11) not null,
+	location_id int(11),
+	visit_id int(11) not null,
+	visit_date Datetime,
+	encounter_id INT(11) not null,
+	encounter_type_id int(11) not null,
+	fever_for_less_than_2wks int(11),
+	chloroquine_duration int(11),
+	primanique_duration int(11),
+	quinine_duration int(11),
+	chloroquine_received tinyint(1),
+	primanique_received tinyint(1),
+	quinine_received tinyint(1),
+	malaria_test int(11),
+	test_result INT(11),
+	rapid_test_result INT(11),
+	last_updated_date DATETIME,
+	voided TINYINT(1),
+	PRIMARY KEY (`encounter_id`,location_id),
+	CONSTRAINT FOREIGN KEY (patient_id) REFERENCES isanteplus.patient(patient_id),
+	INDEX(visit_date),
+	INDEX(encounter_id),
+	INDEX(patient_id)
+);
+	
 insert into regimen(regID,regimenName,drugID1,drugID2,drugID3,shortName,regGroup) values(1,'1stReg1',84309,78643,80586,'d4T-3TC-NVP','1stReg1');
 insert into regimen(regID,regimenName,drugID1,drugID2,drugID3,shortName,regGroup) values(2,'1stReg2',84309,78643,75523,'d4T-3TC-EFV','1stReg2');
 insert into regimen(regID,regimenName,drugID1,drugID2,drugID3,shortName,regGroup) values(3,'1stReg3a',86663,78643,80586,'ZDV-3TC-NVP','1stReg3');

@@ -1977,6 +1977,180 @@ INSERT into virological_tests
 	AND vt.answer_concept_id = 1030
 	AND vt.test_result IN (664,703,1138);
 	
+
+/* <begin Malaria surveillance> */
+
+INSERT INTO patient_malaria
+(
+	patient_id,
+	location_id,
+	visit_id,
+	visit_date,
+	encounter_id,
+	encounter_type_id,
+	last_updated_date,
+	voided
+)
+SELECT DISTINCT
+	e.patient_id,
+	e.location_id,
+	e.visit_id,
+	e.encounter_datetime,
+	e.encounter_id,
+	et.encounter_type_id,
+	now(),
+	e.voided
+FROM openmrs.encounter e, openmrs.encounter_type et
+WHERE e.encounter_type=et.encounter_type_id
+AND et.uuid IN (
+	'12f4d7c3-e047-4455-a607-47a40fe32460', -- Soins de santé primaire--premiére consultation (Adult intital consultation)
+	'a5600919-4dde-4eb8-a45b-05c204af8284', -- Soins de santé primaire--consultation (Adult followp consultation)
+	'709610ff-5e39-4a47-9c27-a60e740b0944', -- Soins de santé primaire--premiére con. p (Paeditric initial consultation)
+	'fdb5b14f-555f-4282-b4c1-9286addf0aae', -- Soins de santé primaire--con. pédiatrique (Paediatric followup consultation)
+	'10d73929-54b6-4d18-a647-8b7316bc1ae3', -- Fiche ordonance médicale
+	'f037e97b-471e-4898-a07c-b8e169e0ddc4', -- Fiche Analyses de Laboratoire
+	'a9392241-109f-4d67-885b-57cc4b8c638f', -- Ordonance médicale pédiatrique
+	'5c312603-25c1-4dbe-be18-1a167eb85f97', -- Saisie Première visite ob/gyn
+	'49592bec-dd22-4b6c-a97f-4dd2af6f2171'  -- Saisie visite suivi ob/gyn
+)
+ON DUPLICATE KEY UPDATE
+encounter_id=e.encounter_id,
+visit_date=e.encounter_datetime,
+last_updated_date=now(),
+voided=e.voided;
+
+/*fever less than 2 weeks*/
+UPDATE isanteplus.patient_malaria pm, openmrs.obs o
+set pm.fever_for_less_than_2wks=1
+where pm.encounter_id=o.encounter_id
+and o.concept_id=159614
+and o.value_coded=163740
+and o.voided=0;
+
+/*number of days chloroquine*/
+UPDATE isanteplus.patient_malaria pm, openmrs.obs o, openmrs.obs o1, openmrs.obs o2
+set pm.chloroquine_duration=o.value_numeric
+where pm.encounter_id=o.encounter_id
+and o.encounter_id=o1.encounter_id
+and o.encounter_id=o2.encounter_id
+and o.obs_group_id=o1.obs_id
+and o2.obs_group_id=o1.obs_id
+and o1.concept_id=1442
+and o.concept_id=159368
+and o2.concept_id=1282
+and o2.value_coded=73300
+and o.voided=0;
+
+/*number of days primanique*/
+UPDATE isanteplus.patient_malaria pm, openmrs.obs o, openmrs.obs o1, openmrs.obs o2
+set pm.primanique_duration=o.value_numeric
+where pm.encounter_id=o.encounter_id
+and o.encounter_id=o1.encounter_id
+and o.encounter_id=o2.encounter_id
+and o.obs_group_id=o1.obs_id
+and o2.obs_group_id=o1.obs_id
+and o1.concept_id=1442
+and o.concept_id=159368
+and o2.concept_id=1282
+and o2.value_coded=82521
+and o.voided=0;
+
+/*number of days quinine*/
+UPDATE isanteplus.patient_malaria pm, openmrs.obs o, openmrs.obs o1, openmrs.obs o2
+set pm.quinine_duration=o.value_numeric
+where pm.encounter_id=o.encounter_id
+and o.encounter_id=o1.encounter_id
+and o.encounter_id=o2.encounter_id
+and o.obs_group_id=o1.obs_id
+and o2.obs_group_id=o1.obs_id
+and o1.concept_id=1442
+and o.concept_id=159368
+and o2.concept_id=1282
+and o2.value_coded=83023
+and o.voided=0;
+
+/*chloroquine received*/
+UPDATE isanteplus.patient_malaria pm, openmrs.obs o, openmrs.obs o1, openmrs.obs o2
+set pm.chloroquine_received=1
+where pm.encounter_id=o.encounter_id
+and o.encounter_id=o1.encounter_id
+and o.encounter_id=o2.encounter_id
+and o.obs_group_id=o1.obs_id
+and o2.obs_group_id=o1.obs_id
+and o1.concept_id=163711
+and o.concept_id=1276
+and o2.concept_id=1282
+and o2.value_coded=73300
+and o.voided=0;
+
+/*primanique received*/
+UPDATE isanteplus.patient_malaria pm, openmrs.obs o, openmrs.obs o1, openmrs.obs o2
+set pm.primanique_received=1
+where pm.encounter_id=o.encounter_id
+and o.encounter_id=o1.encounter_id
+and o.encounter_id=o2.encounter_id
+and o.obs_group_id=o1.obs_id
+and o2.obs_group_id=o1.obs_id
+and o1.concept_id=163711
+and o.concept_id=1276
+and o2.concept_id=1282
+and o2.value_coded=82521
+and o.voided=0;
+
+/*quinine received*/
+UPDATE isanteplus.patient_malaria pm, openmrs.obs o, openmrs.obs o1, openmrs.obs o2
+set pm.quinine_received=1
+where pm.encounter_id=o.encounter_id
+and o.encounter_id=o1.encounter_id
+and o.encounter_id=o2.encounter_id
+and o.obs_group_id=o1.obs_id
+and o2.obs_group_id=o1.obs_id
+and o1.concept_id=163711
+and o.concept_id=1276
+and o2.concept_id=1282
+and o2.value_coded=83023
+and o.voided=0;
+
+/*malaria test*/
+UPDATE isanteplus.patient_malaria pm, openmrs.obs o
+set pm.malaria_test=
+CASE WHEN o.value_coded=1366 THEN 1 -- Malaria Test
+WHEN o.value_coded=1643 THEN 2 -- Malaria Rapid Test
+END
+where pm.encounter_id=o.encounter_id
+and o.concept_id=1271
+and o.value_coded in (1366, 1643)
+and o.voided=0;
+
+/*test result*/
+UPDATE isanteplus.patient_malaria pm, openmrs.obs o
+set pm.test_result=
+CASE WHEN o.value_coded=664 THEN 1 -- Negative
+WHEN o.value_coded=1362 THEN 2 -- 1+
+WHEN o.value_coded=1363 THEN 3 -- 2+
+WHEN o.value_coded=1364 THEN 4 -- 3+
+WHEN o.value_coded=1365 THEN 5 -- 4+
+END
+where pm.encounter_id=o.encounter_id
+and o.concept_id=1366
+and o.value_coded in (664, 1362, 1363, 1364, 1365)
+and o.voided=0;
+
+/*rapid test result*/
+UPDATE isanteplus.patient_malaria pm, openmrs.obs o
+set pm.rapid_test_result=
+CASE WHEN o.value_coded=664 THEN 1 -- Negative
+WHEN o.value_coded=161565 THEN 2 -- Positive
+WHEN o.value_coded=114412 THEN 3 -- Undetermined
+END
+where pm.encounter_id=o.encounter_id
+and o.concept_id=1643
+and o.value_coded in (664, 161565, 114412)
+and o.voided=0;
+
+	
+/* <end Malaria surveillance> */
+	
 	END$$
 DELIMITER ;
 
